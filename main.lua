@@ -17,6 +17,7 @@ local maxMana = 10
 local currentTurn = 1 -- Track turns
 local currentPlayer = 1 -- 1 for player, 2 for AI
 
+local grabber = nil
 local N = 15 -- Points needed to win (between 10-25)
 local player1Points = 0
 local player2Points = 0
@@ -47,6 +48,9 @@ function love.load()
     -- game title and window settings (adjustable)
     love.window.setMode(1280, 720)
     love.window.setTitle("3CG - Project 3 - Fantasy Card Game")
+
+    -- added grabber 
+    grabber = GrabberClass:new()
     
     -- RNG
     love.math.setRandomSeed(os.time())
@@ -109,6 +113,7 @@ end
 function love.update(dt)
     if gameState == "playing" then
         -- end condition checker 
+        grabber:update(dt)
         local gameEnded, winner, reason = gameRules.checkGameEnd(player1Deck, player1Hand, player2Deck, player2Hand)
         if gameEnded then
             print("Game Over! " .. winner .. " wins! Reason: " .. reason)
@@ -143,13 +148,61 @@ function drawGameScreen()
     love.graphics.rectangle("fill", 0, 200, 1280, 320) -- Game field
     
     drawManaDisplay()
-
     drawPlayerHand()
     drawEnemyHand()
-    
+    drawStagedCards() -- Add this line
     drawDeckInfo()
-    
     drawGameInfo()
+    
+    -- Draw drop zones hints
+    drawDropZoneHints()
+end
+
+function drawDropZoneHints()
+    if grabber:isHolding() then
+        -- Draw field drop zone
+        love.graphics.setColor(0, 1, 0, 0.3) -- Green transparent
+        love.graphics.rectangle("fill", 100, 300, 720, 140)
+        love.graphics.setColor(0, 1, 0)
+        love.graphics.rectangle("line", 100, 300, 720, 140)
+        love.graphics.setFont(love.graphics.newFont(16))
+        love.graphics.printf("DROP HERE TO STAGE CARD", 100, 360, 720, "center")
+        
+        -- Draw hand drop zone
+        love.graphics.setColor(0, 0, 1, 0.3) -- Blue transparent
+        love.graphics.rectangle("fill", 100, handY - 20, 800, 180)
+        love.graphics.setColor(0, 0, 1)
+        love.graphics.rectangle("line", 100, handY - 20, 800, 180)
+        love.graphics.printf("DROP HERE TO RETURN TO HAND", 100, handY + 50, 800, "center")
+    end
+end
+
+function playAllStagedCards()
+    if currentPlayer ~= 1 then
+        print("It's not your turn!")
+        return false
+    end
+    
+    -- Check total mana cost
+    local totalCost = grabber:calculateStagedManaCost(stagedCards)
+    
+    if totalCost > player1Mana then
+        print("Not enough mana! Need " .. totalCost .. ", have " .. player1Mana)
+        return false
+    end
+    
+    -- Play all staged cards
+    for i, card in ipairs(stagedCards) do
+        print("Playing card: " .. card.name)
+        -- Deduct mana cost
+        player1Mana = player1Mana - card.manaCost
+    end
+    
+    -- Clear staged cards
+    stagedCards = {}
+    
+    print("All staged cards played! Remaining mana: " .. player1Mana)
+    return true
 end
 
 function drawManaDisplay()
@@ -171,29 +224,50 @@ function drawPlayerHand()
     local spacing = 120
     
     for i, card in ipairs(player1Hand) do
-        local x = startX + (i - 1) * spacing
-        local y = handY
+        local x, y
         
-        -- card background
-        love.graphics.setColor(0.8, 0.8, 0.9)
-        love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
-        love.graphics.setColor(0.2, 0.2, 0.3)
-        love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
-        
-
-        local cardImage = cardData.getCardImage(card.id)
-        if cardImage then
-            love.graphics.setColor(1, 1, 1)
-            local scale = math.min(cardWidth / cardImage:getWidth(), (cardHeight - 40) / cardImage:getHeight())
-            local imgX = x + (cardWidth - cardImage:getWidth() * scale) / 2
-            local imgY = y + 5
-            love.graphics.draw(cardImage, imgX, imgY, 0, scale, scale)
+        -- Use drag position if card is being dragged
+        if card.isDragging and card.dragX and card.dragY then
+            x = card.dragX
+            y = card.dragY
+        else
+            x = startX + (i - 1) * spacing
+            y = handY
         end
         
-        -- card info
-        love.graphics.setColor(0, 0, 0)
-        love.graphics.printf(card.name, x + 2, y + cardHeight - 35, cardWidth - 4, "center")
-        love.graphics.printf("Mana: " .. card.manaCost, x + 2, y + cardHeight - 20, cardWidth - 4, "center")
+        -- Draw card
+        drawCard(card, x, y)
+    end
+end
+
+function drawStagedCards()
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.setFont(love.graphics.newFont(12))
+    
+    local startX = 100
+    local spacing = 120
+    local fieldY = 350
+    
+    for i, card in ipairs(stagedCards) do
+        local x, y
+        
+        -- Use drag position if card is being dragged
+        if card.isDragging and card.dragX and card.dragY then
+            x = card.dragX
+            y = card.dragY
+        else
+            x = startX + (i - 1) * spacing
+            y = fieldY
+        end
+        
+        -- Draw card with slight highlight to show it's staged
+        love.graphics.setColor(0.9, 0.9, 1) -- Slight blue tint
+        drawCard(card, x, y)
+        
+        -- Draw "STAGED" indicator
+        love.graphics.setColor(0, 0.8, 0)
+        love.graphics.setFont(love.graphics.newFont(10))
+        love.graphics.printf("STAGED", x, y - 15, cardWidth, "center")
     end
 end
 
@@ -225,6 +299,30 @@ function drawEnemyHand()
     end
 end
 
+function drawCard(card, x, y)
+    -- Card background
+    love.graphics.setColor(0.8, 0.8, 0.9)
+    love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
+    love.graphics.setColor(0.2, 0.2, 0.3)
+    love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
+    
+    -- Card image
+    local cardImage = cardData.getCardImage(card.id)
+    if cardImage then
+        love.graphics.setColor(1, 1, 1)
+        local scale = math.min(cardWidth / cardImage:getWidth(), (cardHeight - 40) / cardImage:getHeight())
+        local imgX = x + (cardWidth - cardImage:getWidth() * scale) / 2
+        local imgY = y + 5
+        love.graphics.draw(cardImage, imgX, imgY, 0, scale, scale)
+    end
+    
+    -- Card info
+    love.graphics.setColor(0, 0, 0)
+    love.graphics.setFont(love.graphics.newFont(12))
+    love.graphics.printf(card.name, x + 2, y + cardHeight - 35, cardWidth - 4, "center")
+    love.graphics.printf("Mana: " .. card.manaCost, x + 2, y + cardHeight - 20, cardWidth - 4, "center")
+end
+
 function drawDeckInfo()
     love.graphics.setColor(1, 1, 1)
     love.graphics.setFont(love.graphics.newFont(14))
@@ -246,9 +344,16 @@ function drawGameInfo()
     love.graphics.setColor(currentPlayer == 1 and {0.2, 1, 0.2} or {1, 0.2, 0.2})
     love.graphics.printf(turnText, 0, 30, 1280, "center")
     
+    -- Show staged cards count and cost
+    if #stagedCards > 0 then
+        local totalCost = grabber:calculateStagedManaCost(stagedCards)
+        love.graphics.setColor(1, 1, 0)
+        love.graphics.printf("Staged: " .. #stagedCards .. " cards (Cost: " .. totalCost .. ")", 0, 50, 1280, "center")
+    end
+    
     love.graphics.setFont(love.graphics.newFont(12))
     love.graphics.setColor(0.8, 0.8, 0.8)
-    local rulesText = "Rules: 20-card decks, 3-card start, 7-card max hand, 1 draw per turn"
+    local rulesText = "Drag cards to field to stage them. ENTER: Play staged cards"
     love.graphics.printf(rulesText, 0, 680, 1280, "center")
     love.graphics.printf("SPACE: End Turn | R: Restart | ESC: Quit", 0, 695, 1280, "center")
 end
@@ -256,7 +361,13 @@ end
 -- mouse handling 
 -- will likely change this to use my grabber from solitaire project
 
+
 function love.mousepressed(x, y, button)
+    if button == 1 and gameState == "playing" then
+        -- Let grabber handle mouse press first
+        local handled = grabber:onMousePressed(x, y, player1Hand, stagedCards, cardWidth, cardHeight, handY)
+        
+        if not handled then
     if button == 1 and gameState == "playing" then 
 
         local startX = 100
@@ -272,6 +383,15 @@ function love.mousepressed(x, y, button)
                 break
             end
         end
+    end
+        end
+    end
+end
+
+-- Add this new function for mouse release
+function love.mousereleased(x, y, button)
+    if button == 1 and gameState == "playing" then
+        grabber:onMouseReleased(x, y, player1Hand, stagedCards, cardWidth, cardHeight, handY, currentPlayer, player1Mana)
     end
 end
 
@@ -309,8 +429,19 @@ function love.keypressed(key)
     elseif key == "space" and gameState == "playing" then
         -- End turn
         endTurn()
+    elseif key == "return" or key == "enter" then
+        -- Submit/play staged cards
+        if #stagedCards > 0 then
+            local success = playAllStagedCards()
+            if success then
+                print("Cards played successfully!")
+            end
+        else
+            print("No cards staged to play!")
+        end
     end
 end
+
 
 function endTurn()
     print("\n=== Ending Turn " .. currentTurn .. " ===")

@@ -5,8 +5,8 @@ local gameRules = {}
 -- constants 
 gameRules.DECK_SIZE = 20
 gameRules.MAX_COPIES_PER_CARD = 2
-gameRules.STARTING_HAND_SIZE = 3
-gameRules.MAX_HAND_SIZE = 7
+gameRules.STARTING_HAND_SIZE = 2    -- (goes 0,1,2 = 3 cards (oops))
+gameRules.MAX_HAND_SIZE = 6
 gameRules.CARDS_DRAWN_PER_TURN = 1
 
 -- create a valid deck 
