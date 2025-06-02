@@ -1,13 +1,13 @@
-
-
 local gameRules = {}
 
 -- constants 
 gameRules.DECK_SIZE = 20
 gameRules.MAX_COPIES_PER_CARD = 2
-gameRules.STARTING_HAND_SIZE = 2    -- (goes 0,1,2 = 3 cards (oops))
+gameRules.STARTING_HAND_SIZE = 2
 gameRules.MAX_HAND_SIZE = 6
 gameRules.CARDS_DRAWN_PER_TURN = 1
+gameRules.MAX_CARDS_PER_LOCATION = 4
+gameRules.WINNING_POINTS = 20 -- Points needed to win the game
 
 -- create a valid deck 
 function gameRules.createValidDeck(cardData)
@@ -24,7 +24,8 @@ function gameRules.createValidDeck(cardData)
                 description = card.description,
                 imagePath = card.imagePath,
                 manaCost = card.manaCost,
-                copyNumber = copy -- Track which copy this is
+                power = card.power or 0, -- Ensure power is set
+                copyNumber = copy
             })
         end
     end
@@ -62,7 +63,6 @@ function gameRules.dealStartingHands(player1Deck, player2Deck)
     local player1Hand = {}
     local player2Hand = {}
     
-
     for i = 1, gameRules.STARTING_HAND_SIZE do
         -- Player 1 
         if #player1Deck > 0 then
@@ -103,8 +103,8 @@ function gameRules.drawCardsForTurn(deck, hand, playerName)
     return cardsDrawn
 end
 
-    -- card placement checker
-function gameRules.canPlayCard(hand, cardIndex, currentMana, card)
+-- card placement checker for locations
+function gameRules.canPlayCardToLocation(hand, cardIndex, currentMana, card, location)
     -- Check if card index is valid
     if cardIndex < 1 or cardIndex > #hand then
         return false, "Invalid card selection"
@@ -115,7 +115,53 @@ function gameRules.canPlayCard(hand, cardIndex, currentMana, card)
         return false, "Not enough mana"
     end
     
-    return true, "Card can be played"
+    -- Check if location has space
+    if #location.player1Cards >= gameRules.MAX_CARDS_PER_LOCATION then
+        return false, "Location is full (max " .. gameRules.MAX_CARDS_PER_LOCATION .. " cards)"
+    end
+    
+    return true, "Card can be played to location"
+end
+
+-- Calculate total power at a location
+function gameRules.calculateLocationPower(cards)
+    local totalPower = 0
+    for _, card in ipairs(cards) do
+        totalPower = totalPower + (card.power or 0)
+    end
+    return totalPower
+end
+
+-- Check if a player can place more cards at any location
+function gameRules.canPlaceMoreCards(locations, playerNumber)
+    for _, location in ipairs(locations) do
+        local playerCards = playerNumber == 1 and location.player1Cards or location.player2Cards
+        if #playerCards < gameRules.MAX_CARDS_PER_LOCATION then
+            return true
+        end
+    end
+    return false
+end
+
+-- Get available locations for a player
+function gameRules.getAvailableLocations(locations, playerNumber)
+    local available = {}
+    for i, location in ipairs(locations) do
+        local playerCards = playerNumber == 1 and location.player1Cards or location.player2Cards
+        if #playerCards < gameRules.MAX_CARDS_PER_LOCATION then
+            table.insert(available, i)
+        end
+    end
+    return available
+end
+
+-- Calculate total mana cost of a set of cards
+function gameRules.calculateTotalManaCost(cards)
+    local totalCost = 0
+    for _, card in ipairs(cards) do
+        totalCost = totalCost + (card.manaCost or 0)
+    end
+    return totalCost
 end
 
 -- deck validation
@@ -144,24 +190,64 @@ function gameRules.validateDeck(deck)
     return isValid, errors
 end
 
--- win or lose checker
-function gameRules.checkGameEnd(player1Deck, player1Hand, player2Deck, player2Hand)
+-- win or lose checker - updated for location-based game
+function gameRules.checkGameEnd(player1Deck, player1Hand, player2Deck, player2Hand, player1Points, player2Points)
     local gameEnded = false
     local winner = nil
     local reason = ""
     
-    -- Check if a player cannot draw cards and has no cards in hand
-    if #player1Deck == 0 and #player1Hand == 0 then
+    -- Check if a player reached winning points
+    if player1Points >= gameRules.WINNING_POINTS then
+        gameEnded = true
+        winner = "Player 1"
+        reason = "Reached " .. gameRules.WINNING_POINTS .. " points"
+    elseif player2Points >= gameRules.WINNING_POINTS then
         gameEnded = true
         winner = "Player 2"
+        reason = "Reached " .. gameRules.WINNING_POINTS .. " points"
+    -- Check if a player cannot draw cards and has no cards in hand
+    elseif #player1Deck == 0 and #player1Hand == 0 then
+        gameEnded = true
+        winner = player2Points > player1Points and "Player 2" or (player1Points > player2Points and "Player 1" or "Tie")
         reason = "Player 1 ran out of cards"
     elseif #player2Deck == 0 and #player2Hand == 0 then
         gameEnded = true
-        winner = "Player 1"
+        winner = player1Points > player2Points and "Player 1" or (player2Points > player1Points and "Player 2" or "Tie")
         reason = "Player 2 ran out of cards"
     end
     
     return gameEnded, winner, reason
+end
+
+-- location scoring - determine winner of each location and award points
+function gameRules.scoreLocations(locations)
+    local player1TotalPoints = 0
+    local player2TotalPoints = 0
+    
+    for i, location in ipairs(locations) do
+        local p1Power = gameRules.calculateLocationPower(location.player1Cards)
+        local p2Power = gameRules.calculateLocationPower(location.player2Cards)
+        
+        location.player1Power = p1Power
+        location.player2Power = p2Power
+        
+        if p1Power > p2Power then
+            location.winner = 1
+            local points = p1Power - p2Power
+            player1TotalPoints = player1TotalPoints + points
+            print("Player 1 wins " .. location.name .. " (+" .. points .. " points)")
+        elseif p2Power > p1Power then
+            location.winner = 2
+            local points = p2Power - p1Power
+            player2TotalPoints = player2TotalPoints + points
+            print("Player 2 wins " .. location.name .. " (+" .. points .. " points)")
+        else
+            location.winner = "tie"
+            print(location.name .. " is a tie!")
+        end
+    end
+    
+    return player1TotalPoints, player2TotalPoints
 end
 
 -- deck stat checker
@@ -170,7 +256,8 @@ function gameRules.getDeckStats(deck)
         totalCards = #deck,
         cardTypes = {},
         uniqueCards = {},
-        manaCurve = {}
+        manaCurve = {},
+        powerCurve = {}
     }
     
     for i, card in ipairs(deck) do
@@ -183,6 +270,10 @@ function gameRules.getDeckStats(deck)
         -- Count mana costs
         local manaCost = card.manaCost or 0
         stats.manaCurve[manaCost] = (stats.manaCurve[manaCost] or 0) + 1
+        
+        -- Count power levels
+        local power = card.power or 0
+        stats.powerCurve[power] = (stats.powerCurve[power] or 0) + 1
     end
     
     return stats
@@ -194,14 +285,22 @@ function gameRules.printDeckComposition(deck, deckName)
     print("Total cards: " .. #deck)
     
     local cardCounts = {}
+    local totalPower = 0
+    local totalManaCost = 0
+    
     for i, card in ipairs(deck) do
         local key = card.name
         cardCounts[key] = (cardCounts[key] or 0) + 1
+        totalPower = totalPower + (card.power or 0)
+        totalManaCost = totalManaCost + (card.manaCost or 0)
     end
     
     for cardName, count in pairs(cardCounts) do
         print(cardName .. ": " .. count .. " copies")
     end
+    
+    print("Average Mana Cost: " .. string.format("%.1f", totalManaCost / #deck))
+    print("Average Power: " .. string.format("%.1f", totalPower / #deck))
     print("========================\n")
 end
 
@@ -210,7 +309,7 @@ function gameRules.enforceHandSizeLimit(hand, playerName)
     local cardsDiscarded = 0
     
     while #hand > gameRules.MAX_HAND_SIZE do
-        -- removes the oldest card when limit of 7 is exceeded
+        -- removes the oldest card when limit is exceeded
         local discardedCard = table.remove(hand, 1)
         cardsDiscarded = cardsDiscarded + 1
         print(playerName .. " discarded " .. discardedCard.name .. " (hand size limit exceeded)")
@@ -219,6 +318,39 @@ function gameRules.enforceHandSizeLimit(hand, playerName)
     return cardsDiscarded
 end
 
+-- AI helper functions
+function gameRules.evaluateLocationForAI(location, aiCards, opponentCards)
+    local aiPower = gameRules.calculateLocationPower(aiCards)
+    local opponentPower = gameRules.calculateLocationPower(opponentCards)
+    
 
+    local score = aiPower - opponentPower
+    
+    if #aiCards < gameRules.MAX_CARDS_PER_LOCATION then
+        score = score + 1
+    end
+    
+    return score
+end
+
+function gameRules.getBestLocationForAI(locations, card)
+    local bestLocation = 1
+    local bestScore = -999
+    
+    for i, location in ipairs(locations) do
+        if #location.player2Cards < gameRules.MAX_CARDS_PER_LOCATION then
+            local score = gameRules.evaluateLocationForAI(location, location.player2Cards, location.player1Cards)
+            
+            score = score + (card.power or 0)
+            
+            if score > bestScore then
+                bestScore = score
+                bestLocation = i
+            end
+        end
+    end
+    
+    return bestLocation
+end
 
 return gameRules
