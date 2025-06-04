@@ -1,0 +1,65 @@
+
+
+--------------------------------------------------
+--------------------------------------------------
+
+--  CMPM 121
+--  GalaDeer - Project 3
+--  Miguel Comonfort
+
+--------------------------------------------------
+--------------------------------------------------
+
+--  README
+
+--  main.lua
+
+
+
+
+
+--  grabber.lua 
+
+
+
+
+
+--  gameRules.lua
+
+--  establishes all constant game rules
+--  dekc size,max hand size, cards drawn, etc...
+--  validates deck incase of errors
+--  shuffles deck
+--  
+
+
+
+
+--  discardPile.lua
+
+--  NEEDS BETTER OPTIMIZATION AND INTEGRATION 
+--  Stores played cards per user
+--  tracks cards played by each user in case of a special power up card
+--  added future functinos for later expanding on power up cards
+
+
+
+--  cardPowers.lua
+
+--  Stores all of the cards in cardData.lua 
+--  assigns the card powers to each card 
+--  according to my google sheet 
+--  https://docs.google.com/spreadsheets/d/1v3JFHH-ZTxiU_4VAOMZdfLub_uIldZosR3hklX7IChc/edit?usp=sharing
+
+
+
+--  cardData.lua
+
+--  Stores all card data 
+--  this means mana cost, card type, and card power
+--  Sprite credits in cardSprites folder
+--  checks cards data 
+
+
+
+

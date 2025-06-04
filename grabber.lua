@@ -29,10 +29,11 @@ end
 function GrabberClass:onMousePressed(x, y, playerHand, stagedCards, cardWidth, cardHeight, handY)
     self.currentMousePos = Vector(x, y)
     
-    -- Check if clicking on a card in hand
-    local handStartX = 100
-    local handSpacing = 90
+    local screenWidth = love.graphics.getWidth()
+    local handSpacing = math.min(95, (screenWidth - 200) / math.max(#playerHand, 1))
+    local handStartX = (screenWidth - (handSpacing * (#playerHand - 1) + cardWidth)) / 2
     
+    -- Check if clicking on a card in hand
     for i, card in ipairs(playerHand) do
         local cardX = handStartX + (i - 1) * handSpacing
         local cardY = handY
@@ -52,7 +53,15 @@ function GrabberClass:onMousePressed(x, y, playerHand, stagedCards, cardWidth, c
             card.dragY = cardY
             card.isDragging = true
             
-            print("Grabbed card from hand: " .. card.name .. " (Power: " .. (card.power or 0) .. ")")
+            print("Grabbed card from hand: " .. card.name .. " (Power: " .. (card.power or 0) .. ", Cost: " .. (card.manaCost or 0) .. ")")
+            
+            -- Show card ability info when grabbing
+            local cardPowers = require("cardPowers")
+            if cardPowers.hasSpecialAbility(card.id) then
+                local powerDef = cardPowers.getPowerDefinition(card.id)
+                print("  Special Ability: " .. (powerDef.description or "Unknown"))
+            end
+            
             return true
         end
     end
@@ -76,12 +85,19 @@ function GrabberClass:onMousePressed(x, y, playerHand, stagedCards, cardWidth, c
             self.originalY = cardY
             self.grabOffset = Vector(x - cardX, y - cardY)
             
-            -- Initialize drag position
             stagedCard.card.dragX = cardX
             stagedCard.card.dragY = cardY
             stagedCard.card.isDragging = true
             
-            print("Grabbed card from staged: " .. stagedCard.card.name .. " (Power: " .. (stagedCard.card.power or 0) .. ")")
+            print("Grabbed card from staged: " .. stagedCard.card.name .. " (Power: " .. (stagedCard.card.power or 0) .. ", Cost: " .. (stagedCard.card.manaCost or 0) .. ")")
+            
+            -- Show card ability info
+            local cardPowers = require("cardPowers")
+            if cardPowers.hasSpecialAbility(stagedCard.card.id) then
+                local powerDef = cardPowers.getPowerDefinition(stagedCard.card.id)
+                print("  Special Ability: " .. (powerDef.description or "Unknown"))
+            end
+            
             return true
         end
     end
@@ -89,12 +105,12 @@ function GrabberClass:onMousePressed(x, y, playerHand, stagedCards, cardWidth, c
     return false
 end
 
-
 function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, cardHeight, handY, currentPlayer, currentMana, locations, locationDropped)
     if not self.heldCard then return false end
 
     local card = self.heldCard
     local placed = false
+    local cardPowers = require("cardPowers")
 
     print("DEBUG: Releasing card " .. (card.name or "Unknown") .. " at position (" .. x .. ", " .. y .. ")")
     print("DEBUG: Card before release - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
@@ -115,7 +131,7 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
                                 break
                             end
                         end
-                        -- Clean up card properties
+                        
                         local stagedCard = {
                             id = card.id,
                             name = card.name,
@@ -124,7 +140,6 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
                             imagePath = card.imagePath,
                             manaCost = card.manaCost,
                             power = card.power or 0
-
                         }
 
                         table.insert(stagedCards, {
@@ -134,6 +149,12 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
                         placed = true
                         print("DEBUG: Staged clean card - dragX=" .. tostring(stagedCard.dragX) .. ", dragY=" .. tostring(stagedCard.dragY) .. ", isDragging=" .. tostring(stagedCard.isDragging))
                         print("Staged " .. card.name .. " for " .. location.name .. " (Power: " .. stagedCard.power .. ", Total cost after staging: " .. totalCostAfterStaging .. "/" .. currentMana .. ")")
+                        
+                        -- ability preview
+                        if cardPowers.hasSpecialAbility(card.id) then
+                            local powerDef = cardPowers.getPowerDefinition(card.id)
+                            print("  Will trigger: " .. (powerDef.description or "Unknown ability"))
+                        end
                     else
                         print("Location " .. locations[locationDropped].name .. " is full!")
                     end
@@ -144,9 +165,15 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
                 local stagedCard = stagedCards[self.sourceIndex]
                 local location = locations[locationDropped]
                 if #location.player1Cards < 4 then
+                    local oldLocation = locations[stagedCard.locationIndex]
                     stagedCard.locationIndex = locationDropped
                     placed = true
-                    print("Moved " .. card.name .. " to " .. location.name .. " (Power: " .. (stagedCard.card.power or 0) .. ")")
+                    print("Moved " .. card.name .. " from " .. oldLocation.name .. " to " .. location.name .. " (Power: " .. (stagedCard.card.power or 0) .. ")")
+                    
+                    if cardPowers.hasSpecialAbility(card.id) then
+                        local powerDef = cardPowers.getPowerDefinition(card.id)
+                        print("  Will trigger at " .. location.name .. ": " .. (powerDef.description or "Unknown ability"))
+                    end
                 else
                     print("Location " .. locations[locationDropped].name .. " is full!")
                 end
@@ -164,10 +191,9 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
             table.remove(stagedCards, self.sourceIndex)
             local cardToReturn = stagedCardData.card
             
-
             cardToReturn.dragX = nil
             cardToReturn.dragY = nil
-            cardToReturn.isDragging = nil  -- Set to nil
+            cardToReturn.isDragging = nil
             
             table.insert(playerHand, cardToReturn)
             placed = true
@@ -175,6 +201,7 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
             print("Returned " .. card.name .. " to hand (Power: " .. (cardToReturn.power or 0) .. ")")
         elseif self.sourceType == "hand" then
             placed = true
+            print("Card " .. card.name .. " returned to original hand position")
         end
     end
 
@@ -184,9 +211,9 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
     end
 
     if card then
-        card.isDragging = nil   -- Set to nil
-        card.dragX = nil        -- Completely remove the property
-        card.dragY = nil        -- Completely remove the property
+        card.isDragging = nil
+        card.dragX = nil
+        card.dragY = nil
         print("DEBUG: Cleaned held card - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
     end
 
@@ -200,7 +227,6 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
 
     return placed
 end
-
 
 function GrabberClass:returnToOriginalPosition(playerHand, stagedCards)
     local card = self.heldCard
@@ -224,7 +250,7 @@ function GrabberClass:returnToOriginalPosition(playerHand, stagedCards)
         
         card.dragX = nil
         card.dragY = nil
-        card.isDragging = nil  -- Set to nil
+        card.isDragging = nil
         
         print("DEBUG: Returned card to hand position - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
         print("Returned " .. card.name .. " to hand (Power: " .. (card.power or 0) .. ")")
@@ -239,7 +265,6 @@ function GrabberClass:returnToOriginalPosition(playerHand, stagedCards)
             end
         end
         if not found then
-
             local cleanCard = {
                 id = card.id,
                 name = card.name,
@@ -248,7 +273,6 @@ function GrabberClass:returnToOriginalPosition(playerHand, stagedCards)
                 imagePath = card.imagePath,
                 manaCost = card.manaCost,
                 power = card.power or 0
-
             }
             
             table.insert(stagedCards, {
@@ -257,10 +281,9 @@ function GrabberClass:returnToOriginalPosition(playerHand, stagedCards)
             })
         end
         
-
         card.dragX = nil
         card.dragY = nil
-        card.isDragging = nil  -- Set to nil
+        card.isDragging = nil
         
         print("DEBUG: Returned card to staged position - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
         print("Returned " .. card.name .. " to staged cards (Power: " .. (card.power or 0) .. ")")
@@ -275,7 +298,7 @@ function GrabberClass:getHeldCard()
     return self.heldCard
 end
 
--- Calculate total mana cost of staged cards 
+-- total mana cost of staged cards 
 function GrabberClass:calculateStagedManaCost(stagedCards)
     local totalCost = 0
     for i, stagedCard in ipairs(stagedCards) do
@@ -284,7 +307,6 @@ function GrabberClass:calculateStagedManaCost(stagedCards)
     return totalCost
 end
 
--- Get cards staged for a specific location
 function GrabberClass:getCardsForLocation(stagedCards, locationIndex)
     local cards = {}
     for i, stagedCard in ipairs(stagedCards) do
@@ -306,7 +328,7 @@ function GrabberClass:countCardsForLocation(stagedCards, locationIndex)
     return count
 end
 
-
+-- Enhanced validation with card powers consideration
 function GrabberClass:validateStagedCards(stagedCards, locations, currentMana)
     local totalCost = self:calculateStagedManaCost(stagedCards)
     
@@ -328,9 +350,23 @@ function GrabberClass:validateStagedCards(stagedCards, locations, currentMana)
         end
     end
     
-    return true, "All staged cards are valid"
+    local cardPowers = require("cardPowers")
+    local synergies = {}
+    for i, stagedCard in ipairs(stagedCards) do
+        if cardPowers.hasSpecialAbility(stagedCard.card.id) then
+            local powerDef = cardPowers.getPowerDefinition(stagedCard.card.id)
+            local locationName = locations[stagedCard.locationIndex].name
+            table.insert(synergies, stagedCard.card.name .. " will trigger at " .. locationName .. ": " .. (powerDef.description or "Unknown"))
+        end
+    end
+    
+    local validationMessage = "All staged cards are valid"
+    if #synergies > 0 then
+        validationMessage = validationMessage .. "\nSpecial abilities will trigger:\n" .. table.concat(synergies, "\n")
+    end
+    
+    return true, validationMessage
 end
-
 
 function GrabberClass:clearStagedCards(stagedCards, playerHand)
     for i, stagedCard in ipairs(stagedCards) do
@@ -338,7 +374,8 @@ function GrabberClass:clearStagedCards(stagedCards, playerHand)
 
         cardToReturn.dragX = nil
         cardToReturn.dragY = nil
-        cardToReturn.isDragging = nil  -- Set to nil, not false
+        cardToReturn.isDragging = nil
+        
         table.insert(playerHand, cardToReturn)
         print("DEBUG: Cleared staged card - dragX=" .. tostring(cardToReturn.dragX) .. ", dragY=" .. tostring(cardToReturn.dragY) .. ", isDragging=" .. tostring(cardToReturn.isDragging))
     end
@@ -348,6 +385,32 @@ function GrabberClass:clearStagedCards(stagedCards, playerHand)
     end
     
     print("Cleared all staged cards and returned to hand")
+end
+
+-- Get preview of what abilities will trigger this turn
+function GrabberClass:previewAbilities(stagedCards, locations)
+    local cardPowers = require("cardPowers")
+    local previews = {}
+    
+    for i, stagedCard in ipairs(stagedCards) do
+        if cardPowers.hasSpecialAbility(stagedCard.card.id) then
+            local powerDef = cardPowers.getPowerDefinition(stagedCard.card.id)
+            local location = locations[stagedCard.locationIndex]
+            
+            local preview = {
+                cardName = stagedCard.card.name,
+                locationName = location.name,
+                abilityType = powerDef.type,
+                description = powerDef.description,
+                timing = powerDef.type == "on_reveal" and "When revealed" or 
+                        powerDef.type == "on_play" and "When played" or 
+                        powerDef.type == "ongoing" and "Ongoing effect" or "Unknown timing"
+            }
+            table.insert(previews, preview)
+        end
+    end
+    
+    return previews
 end
 
 return GrabberClass

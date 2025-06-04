@@ -24,7 +24,7 @@ function gameRules.createValidDeck(cardData)
                 description = card.description,
                 imagePath = card.imagePath,
                 manaCost = card.manaCost,
-                power = card.power or 0, -- Ensure power is set
+                power = card.power or 0,
                 copyNumber = copy
             })
         end
@@ -43,7 +43,6 @@ function gameRules.createValidDeck(cardData)
         end
     end
     
-    -- Shuffle 
     gameRules.shuffleDeck(deck)
     
     print("Created valid deck with " .. #deck .. " cards")
@@ -155,7 +154,7 @@ function gameRules.getAvailableLocations(locations, playerNumber)
     return available
 end
 
--- Calculate total mana cost of a set of cards
+-- total mana cost of a set of cards
 function gameRules.calculateTotalManaCost(cards)
     local totalCost = 0
     for _, card in ipairs(cards) do
@@ -190,7 +189,7 @@ function gameRules.validateDeck(deck)
     return isValid, errors
 end
 
--- win or lose checker - updated for location-based game
+-- win or lose checker
 function gameRules.checkGameEnd(player1Deck, player1Hand, player2Deck, player2Hand, player1Points, player2Points)
     local gameEnded = false
     local winner = nil
@@ -219,7 +218,7 @@ function gameRules.checkGameEnd(player1Deck, player1Hand, player2Deck, player2Ha
     return gameEnded, winner, reason
 end
 
--- location scoring - determine winner of each location and award points
+-- determine winner of each location
 function gameRules.scoreLocations(locations)
     local player1TotalPoints = 0
     local player2TotalPoints = 0
@@ -309,7 +308,6 @@ function gameRules.enforceHandSizeLimit(hand, playerName)
     local cardsDiscarded = 0
     
     while #hand > gameRules.MAX_HAND_SIZE do
-        -- removes the oldest card when limit is exceeded
         local discardedCard = table.remove(hand, 1)
         cardsDiscarded = cardsDiscarded + 1
         print(playerName .. " discarded " .. discardedCard.name .. " (hand size limit exceeded)")

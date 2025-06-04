@@ -1,13 +1,6 @@
-
-
 local cardData = {}
 
--- Card definitions with their properties
--- Will be mimicing the google sheet card definitions from template from the professor 
--- altered to fit the game design cards 
-
 cardData.definitions = {
-
     {
         id = 1,
         name = "Fireball",
@@ -37,7 +30,7 @@ cardData.definitions = {
     },
     {
         id = 4,
-        name = "Market",
+        name = "Market Hustler",
         type = "location",
         description = "Trade and commerce hub",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/4_Market.png",
@@ -48,7 +41,7 @@ cardData.definitions = {
         id = 5,
         name = "Steal",
         type = "spell",
-        description = "Take something from opponent",
+        description = "When Revealed: Lower the power of each card in your opponent's hand by 1",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/5_Steal.png",
         manaCost = 5,
         power = 7
@@ -57,7 +50,7 @@ cardData.definitions = {
         id = 6,
         name = "King",
         type = "creature",
-        description = "Powerful royal leader",
+        description = "When Revealed: Gain +2 power for each enemy card here",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/6_King.png",
         manaCost = 8,
         power = 11
@@ -66,7 +59,7 @@ cardData.definitions = {
         id = 7,
         name = "Stink Trap",
         type = "trap",
-        description = "Foul-smelling defensive trap",
+        description = "When ANY other card is played here, lower that card's power by 1",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/7_StinkTrap.png",
         manaCost = 3,
         power = 4
@@ -75,7 +68,7 @@ cardData.definitions = {
         id = 8,
         name = "Lightning Wizard",
         type = "creature",
-        description = "Master of electrical magic",
+        description = "When Revealed: Discard your other cards here, gain +2 power for each discarded",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/8_LightningWizard.png",
         manaCost = 4,
         power = 3
@@ -84,7 +77,7 @@ cardData.definitions = {
         id = 9,
         name = "Hypnosis",
         type = "spell",
-        description = "Control opponent's mind",
+        description = "When Revealed: Move away an enemy card here with the lowest power",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/9_Hypnosis.png",
         manaCost = 3,
         power = 4
@@ -93,7 +86,7 @@ cardData.definitions = {
         id = 10,
         name = "Beehive",
         type = "structure",
-        description = "Produces buzzing defenders",
+        description = "When Revealed: Gain +5 power if there is exactly one enemy card here",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/10_Beehive.png",
         manaCost = 7,
         power = 8
@@ -102,7 +95,7 @@ cardData.definitions = {
         id = 11,
         name = "Pollination",
         type = "spell",
-        description = "Nature's spreading magic",
+        description = "When Revealed: Give cards in your hand +1 power",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/11_Polinization.png",
         manaCost = 5,
         power = 6
@@ -111,7 +104,7 @@ cardData.definitions = {
         id = 12,
         name = "Mimic",
         type = "creature",
-        description = "Shapeshifting trickster",
+        description = "Add a copy to your hand after this card is played",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/12_Mimic.png",
         manaCost = 8,
         power = 10
@@ -129,7 +122,7 @@ cardData.definitions = {
         id = 14,
         name = "Coin",
         type = "resource",
-        description = "Currency for trading",
+        description = "When Revealed: Gain +2 mana next turn",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/14_Coin.png",
         manaCost = 2,
         power = 3
@@ -138,7 +131,7 @@ cardData.definitions = {
         id = 15,
         name = "Cult",
         type = "organization",
-        description = "Dark religious gathering",
+        description = "When Revealed: Both players draw a card",
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/15_Cult.png",
         manaCost = 2,
         power = 4
@@ -169,7 +162,6 @@ cardData.definitions = {
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/18_WaterDragon.png",
         manaCost = 3,
         power = 1
-
     },
     {
         id = 19,
@@ -180,7 +172,6 @@ cardData.definitions = {
         manaCost = 2,
         power = 1
     },
-
     {
         id = 20,
         name = "Fire Element",
@@ -225,7 +216,6 @@ cardData.definitions = {
         imagePath = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/24_Element_Dark.png",
         manaCost = 2,
         power = 3
-
     },
     {
         id = 25,
@@ -236,7 +226,6 @@ cardData.definitions = {
         manaCost = 1,
         power = 2
     },
-
     {
         id = 26,
         name = "Blood Ring",
@@ -284,17 +273,16 @@ cardData.definitions = {
     }
 }
 
-
 cardData.cardBackImage = "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/0_CardBack.png"
 
--- images table
+-- Images table
 cardData.images = {}
 
--- preload 
+-- Preload all images
 function cardData.loadImages()
     print("Loading card images...")
     
-
+    -- Load card back
     local success, cardBack = pcall(love.graphics.newImage, cardData.cardBackImage)
     if success then
         cardData.images.cardBack = cardBack
@@ -303,7 +291,7 @@ function cardData.loadImages()
         print("✗ Failed to load card back: " .. cardData.cardBackImage)
     end
     
-
+    -- Load all card images
     local loadedCount = 0
     local failedCount = 0
     
@@ -321,7 +309,7 @@ function cardData.loadImages()
     print("Card loading complete: " .. loadedCount .. " loaded, " .. failedCount .. " failed")
 end
 
--- call by ID
+-- Get card by ID
 function cardData.getCard(id)
     for i, card in ipairs(cardData.definitions) do
         if card.id == id then
@@ -331,17 +319,17 @@ function cardData.getCard(id)
     return nil
 end
 
--- call by ID
+-- Get card image by ID
 function cardData.getCardImage(id)
     return cardData.images[id]
 end
 
-
+-- Get card back image
 function cardData.getCardBackImage()
     return cardData.images.cardBack
 end
 
--- card type call
+-- Get cards by type
 function cardData.getCardsByType(cardType)
     local result = {}
     for i, card in ipairs(cardData.definitions) do
@@ -352,17 +340,17 @@ function cardData.getCardsByType(cardType)
     return result
 end
 
--- RNG card distribution
+-- Get random cards for deck building
 function cardData.getRandomCards(count)
     local result = {}
     local availableCards = {}
     
-    -- copy of cards
+    -- Create copy of all cards
     for i, card in ipairs(cardData.definitions) do
         table.insert(availableCards, card)
     end
     
-
+    -- Randomly select cards
     for i = 1, math.min(count, #availableCards) do
         local randomIndex = love.math.random(1, #availableCards)
         table.insert(result, availableCards[randomIndex])
@@ -372,7 +360,7 @@ function cardData.getRandomCards(count)
     return result
 end
 
--- Mana manger
+-- Mana cost manager (if needed for balancing)
 function cardData.setManaCosts(manaCostTable)
     for id, cost in pairs(manaCostTable) do
         local card = cardData.getCard(id)
@@ -381,6 +369,146 @@ function cardData.setManaCosts(manaCostTable)
             print("Set mana cost for " .. card.name .. ": " .. cost)
         end
     end
+end
+
+-- Get all cards with special abilities
+function cardData.getCardsWithAbilities()
+    local result = {}
+    local cardPowers = require("cardPowers")
+    
+    for i, card in ipairs(cardData.definitions) do
+        if cardPowers.hasSpecialAbility(card.id) then
+            table.insert(result, card)
+        end
+    end
+    
+    return result
+end
+
+-- Get card statistics
+function cardData.getCardStats()
+    local stats = {
+        totalCards = #cardData.definitions,
+        averageManaCost = 0,
+        averagePower = 0,
+        manaCostDistribution = {},
+        powerDistribution = {},
+        typeDistribution = {},
+        cardsWithAbilities = 0
+    }
+    
+    local totalManaCost = 0
+    local totalPower = 0
+    local cardPowers = require("cardPowers")
+    
+    for i, card in ipairs(cardData.definitions) do
+        -- totals
+        totalManaCost = totalManaCost + (card.manaCost or 0)
+        totalPower = totalPower + (card.power or 0)
+        
+        local manaCost = card.manaCost or 0
+        local power = card.power or 0
+        local cardType = card.type or "unknown"
+        
+        stats.manaCostDistribution[manaCost] = (stats.manaCostDistribution[manaCost] or 0) + 1
+        stats.powerDistribution[power] = (stats.powerDistribution[power] or 0) + 1
+        stats.typeDistribution[cardType] = (stats.typeDistribution[cardType] or 0) + 1
+        
+        -- special abilities
+        if cardPowers.hasSpecialAbility(card.id) then
+            stats.cardsWithAbilities = stats.cardsWithAbilities + 1
+        end
+    end
+    
+    -- Calculate averages
+    if stats.totalCards > 0 then
+        stats.averageManaCost = totalManaCost / stats.totalCards
+        stats.averagePower = totalPower / stats.totalCards
+    end
+    
+    return stats
+end
+
+-- Print card database info (for debugging)
+function cardData.printCardDatabase()
+    print("\n=== CARD DATABASE INFO ===")
+    local stats = cardData.getCardStats()
+    
+    print("Total Cards: " .. stats.totalCards)
+    print("Average Mana Cost: " .. string.format("%.1f", stats.averageManaCost))
+    print("Average Power: " .. string.format("%.1f", stats.averagePower))
+    print("Cards with Special Abilities: " .. stats.cardsWithAbilities)
+    
+    print("\nMana Cost Distribution:")
+    for cost, count in pairs(stats.manaCostDistribution) do
+        print("  " .. cost .. " mana: " .. count .. " cards")
+    end
+    
+    print("\nCard Type Distribution:")
+    for cardType, count in pairs(stats.typeDistribution) do
+        print("  " .. cardType .. ": " .. count .. " cards")
+    end
+    
+    print("\nCards with Special Abilities:")
+    local cardPowers = require("cardPowers")
+    for i, card in ipairs(cardData.definitions) do
+        if cardPowers.hasSpecialAbility(card.id) then
+            local powerDef = cardPowers.getPowerDefinition(card.id)
+            print("  " .. card.name .. " (" .. card.manaCost .. "/" .. card.power .. "): " .. (powerDef.description or "Unknown ability"))
+        end
+    end
+    print("========================\n")
+end
+
+-- Validate card data integrity
+function cardData.validateCardData()
+    local errors = {}
+    local warnings = {}
+    
+    for i, card in ipairs(cardData.definitions) do
+        if not card.id then
+            table.insert(errors, "Card at index " .. i .. " missing ID")
+        end
+        if not card.name or card.name == "" then
+            table.insert(errors, "Card " .. (card.id or i) .. " missing name")
+        end
+        if not card.manaCost or card.manaCost < 0 then
+            table.insert(warnings, "Card " .. (card.name or card.id or i) .. " has invalid mana cost: " .. tostring(card.manaCost))
+        end
+        if not card.power or card.power < 0 then
+            table.insert(warnings, "Card " .. (card.name or card.id or i) .. " has invalid power: " .. tostring(card.power))
+        end
+        if not card.imagePath or card.imagePath == "" then
+            table.insert(warnings, "Card " .. (card.name or card.id or i) .. " missing image path")
+        end
+        
+        -- Check for duplicate IDs
+        for j, otherCard in ipairs(cardData.definitions) do
+            if i ~= j and card.id == otherCard.id then
+                table.insert(errors, "Duplicate card ID: " .. card.id .. " (cards: " .. (card.name or "Unknown") .. " and " .. (otherCard.name or "Unknown") .. ")")
+            end
+        end
+    end
+    
+    if #errors > 0 then
+        print("CARD DATA ERRORS:")
+        for _, error in ipairs(errors) do
+            print("  ERROR: " .. error)
+        end
+    end
+    
+    if #warnings > 0 then
+        print("CARD DATA WARNINGS:")
+        for _, warning in ipairs(warnings) do
+            print("  WARNING: " .. warning)
+        end
+    end
+    
+    if #errors == 0 and #warnings == 0 then
+        print("Card data validation passed - no errors or warnings found!")
+    end
+    
+    return #errors == 0, errors, warnings
 end
 
 return cardData

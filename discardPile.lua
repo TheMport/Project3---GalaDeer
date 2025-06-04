@@ -301,7 +301,7 @@ function discardPile.shuffleBackIntoDeck(playerNumber, deck)
     return cardsShuffled
 end
 
--- Export discard pile data for save/load functionality
+-- Export discard pile data for save/load 
 function discardPile.exportData()
     return {
         player1Discard = discardPile.player1Discard,
@@ -310,7 +310,6 @@ function discardPile.exportData()
     }
 end
 
--- Import discard pile data for save/load functionality
 function discardPile.importData(data)
     if data then
         discardPile.player1Discard = data.player1Discard or {}
