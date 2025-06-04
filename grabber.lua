@@ -52,7 +52,7 @@ function GrabberClass:onMousePressed(x, y, playerHand, stagedCards, cardWidth, c
             card.dragY = cardY
             card.isDragging = true
             
-            print("Grabbed card from hand: " .. card.name)
+            print("Grabbed card from hand: " .. card.name .. " (Power: " .. (card.power or 0) .. ")")
             return true
         end
     end
@@ -81,7 +81,7 @@ function GrabberClass:onMousePressed(x, y, playerHand, stagedCards, cardWidth, c
             stagedCard.card.dragY = cardY
             stagedCard.card.isDragging = true
             
-            print("Grabbed card from staged: " .. stagedCard.card.name)
+            print("Grabbed card from staged: " .. stagedCard.card.name .. " (Power: " .. (stagedCard.card.power or 0) .. ")")
             return true
         end
     end
@@ -89,38 +89,51 @@ function GrabberClass:onMousePressed(x, y, playerHand, stagedCards, cardWidth, c
     return false
 end
 
+
 function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, cardHeight, handY, currentPlayer, currentMana, locations, locationDropped)
     if not self.heldCard then return false end
-    
+
     local card = self.heldCard
     local placed = false
-    
-    -- Check if dropping on a location - USE THE PASSED locationDropped parameter
+
+    print("DEBUG: Releasing card " .. (card.name or "Unknown") .. " at position (" .. x .. ", " .. y .. ")")
+    print("DEBUG: Card before release - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
+
     if locationDropped then
         if currentPlayer == 1 then
             if self.sourceType == "hand" then
-                -- Check mana cost for staging
                 local currentStagedCost = self:calculateStagedManaCost(stagedCards)
                 local totalCostAfterStaging = currentStagedCost + card.manaCost
-                
+
                 if totalCostAfterStaging <= currentMana then
-                    -- Check if location has space
                     local location = locations[locationDropped]
-                    if #location.player1Cards < 4 then -- MAX_CARDS_PER_LOCATION
-                        -- Remove from hand and add to staged
+                    if #location.player1Cards < 4 then
+                        -- Remove card from hand
                         for i = #playerHand, 1, -1 do
                             if playerHand[i] == card then
                                 table.remove(playerHand, i)
                                 break
                             end
                         end
-                        
+                        -- Clean up card properties
+                        local stagedCard = {
+                            id = card.id,
+                            name = card.name,
+                            type = card.type,
+                            description = card.description,
+                            imagePath = card.imagePath,
+                            manaCost = card.manaCost,
+                            power = card.power or 0
+
+                        }
+
                         table.insert(stagedCards, {
-                            card = card,
+                            card = stagedCard,
                             locationIndex = locationDropped
                         })
                         placed = true
-                        print("Staged " .. card.name .. " for " .. location.name .. " (Total cost after staging: " .. totalCostAfterStaging .. "/" .. currentMana .. ")")
+                        print("DEBUG: Staged clean card - dragX=" .. tostring(stagedCard.dragX) .. ", dragY=" .. tostring(stagedCard.dragY) .. ", isDragging=" .. tostring(stagedCard.isDragging))
+                        print("Staged " .. card.name .. " for " .. location.name .. " (Power: " .. stagedCard.power .. ", Total cost after staging: " .. totalCostAfterStaging .. "/" .. currentMana .. ")")
                     else
                         print("Location " .. locations[locationDropped].name .. " is full!")
                     end
@@ -128,13 +141,12 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
                     print("Cannot stage " .. card.name .. " - would exceed mana limit (" .. totalCostAfterStaging .. " > " .. currentMana .. ")")
                 end
             elseif self.sourceType == "staged" then
-                -- Move staged card to different location
                 local stagedCard = stagedCards[self.sourceIndex]
                 local location = locations[locationDropped]
                 if #location.player1Cards < 4 then
                     stagedCard.locationIndex = locationDropped
                     placed = true
-                    print("Moved " .. card.name .. " to " .. location.name)
+                    print("Moved " .. card.name .. " to " .. location.name .. " (Power: " .. (stagedCard.card.power or 0) .. ")")
                 else
                     print("Location " .. locations[locationDropped].name .. " is full!")
                 end
@@ -143,32 +155,41 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
             print("It's not your turn!")
         end
     end
-    
-    -- Check if dropping back to hand (IMPROVED HAND DETECTION)
+
+    -- Check if dropping back to hand
     if not placed and y >= handY - 50 and y <= handY + cardHeight + 50 and 
        x >= 50 and x <= love.graphics.getWidth() - 50 then
         if self.sourceType == "staged" then
-            -- Remove from staged and return to hand
+            local stagedCardData = stagedCards[self.sourceIndex]
             table.remove(stagedCards, self.sourceIndex)
-            table.insert(playerHand, card)
+            local cardToReturn = stagedCardData.card
+            
+
+            cardToReturn.dragX = nil
+            cardToReturn.dragY = nil
+            cardToReturn.isDragging = nil  -- Set to nil
+            
+            table.insert(playerHand, cardToReturn)
             placed = true
-            print("Returned " .. card.name .. " to hand")
+            print("DEBUG: Returned card to hand - dragX=" .. tostring(cardToReturn.dragX) .. ", dragY=" .. tostring(cardToReturn.dragY) .. ", isDragging=" .. tostring(cardToReturn.isDragging))
+            print("Returned " .. card.name .. " to hand (Power: " .. (cardToReturn.power or 0) .. ")")
         elseif self.sourceType == "hand" then
-            -- Already in hand, just repositioning
             placed = true
         end
     end
-    
-    -- If not placed anywhere valid, return to original position
+
+    -- Return to original position if not placed
     if not placed then
         self:returnToOriginalPosition(playerHand, stagedCards)
     end
-    
-    -- Clean up drag state
-    card.isDragging = false
-    card.dragX = nil
-    card.dragY = nil
-    
+
+    if card then
+        card.isDragging = nil   -- Set to nil
+        card.dragX = nil        -- Completely remove the property
+        card.dragY = nil        -- Completely remove the property
+        print("DEBUG: Cleaned held card - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
+    end
+
     -- Reset grabber
     self.heldCard = nil
     self.sourceType = nil
@@ -176,11 +197,10 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
     self.sourceLocationIndex = nil
     self.originalX = 0
     self.originalY = 0
-    
+
     return placed
 end
 
--- REMOVED THE OLD checkLocationDrop function since we now use the one from main.lua
 
 function GrabberClass:returnToOriginalPosition(playerHand, stagedCards)
     local card = self.heldCard
@@ -201,7 +221,13 @@ function GrabberClass:returnToOriginalPosition(playerHand, stagedCards)
                 table.insert(playerHand, card)
             end
         end
-        print("Returned " .. card.name .. " to hand")
+        
+        card.dragX = nil
+        card.dragY = nil
+        card.isDragging = nil  -- Set to nil
+        
+        print("DEBUG: Returned card to hand position - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
+        print("Returned " .. card.name .. " to hand (Power: " .. (card.power or 0) .. ")")
         
     elseif self.sourceType == "staged" then
         -- Ensure card is back in staged cards
@@ -213,12 +239,31 @@ function GrabberClass:returnToOriginalPosition(playerHand, stagedCards)
             end
         end
         if not found then
+
+            local cleanCard = {
+                id = card.id,
+                name = card.name,
+                type = card.type,
+                description = card.description,
+                imagePath = card.imagePath,
+                manaCost = card.manaCost,
+                power = card.power or 0
+
+            }
+            
             table.insert(stagedCards, {
-                card = card,
+                card = cleanCard,
                 locationIndex = 1 -- Default to first location
             })
         end
-        print("Returned " .. card.name .. " to staged cards")
+        
+
+        card.dragX = nil
+        card.dragY = nil
+        card.isDragging = nil  -- Set to nil
+        
+        print("DEBUG: Returned card to staged position - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
+        print("Returned " .. card.name .. " to staged cards (Power: " .. (card.power or 0) .. ")")
     end
 end
 
@@ -230,7 +275,7 @@ function GrabberClass:getHeldCard()
     return self.heldCard
 end
 
--- Calculate total mana cost of staged cards - FIXED CALCULATION
+-- Calculate total mana cost of staged cards 
 function GrabberClass:calculateStagedManaCost(stagedCards)
     local totalCost = 0
     for i, stagedCard in ipairs(stagedCards) do
@@ -261,7 +306,7 @@ function GrabberClass:countCardsForLocation(stagedCards, locationIndex)
     return count
 end
 
--- Validate that all staged cards can be legally played - IMPROVED VALIDATION
+
 function GrabberClass:validateStagedCards(stagedCards, locations, currentMana)
     local totalCost = self:calculateStagedManaCost(stagedCards)
     
@@ -269,7 +314,7 @@ function GrabberClass:validateStagedCards(stagedCards, locations, currentMana)
         return false, "Total mana cost (" .. totalCost .. ") exceeds available mana (" .. currentMana .. ")"
     end
     
-    -- Check location capacity - IMPROVED CHECK
+    -- Check location capacity 
     local locationCounts = {}
     for i, stagedCard in ipairs(stagedCards) do
         local locationIndex = stagedCard.locationIndex
@@ -286,10 +331,16 @@ function GrabberClass:validateStagedCards(stagedCards, locations, currentMana)
     return true, "All staged cards are valid"
 end
 
--- Clear all staged cards and return them to hand
+
 function GrabberClass:clearStagedCards(stagedCards, playerHand)
     for i, stagedCard in ipairs(stagedCards) do
-        table.insert(playerHand, stagedCard.card)
+        local cardToReturn = stagedCard.card
+
+        cardToReturn.dragX = nil
+        cardToReturn.dragY = nil
+        cardToReturn.isDragging = nil  -- Set to nil, not false
+        table.insert(playerHand, cardToReturn)
+        print("DEBUG: Cleared staged card - dragX=" .. tostring(cardToReturn.dragX) .. ", dragY=" .. tostring(cardToReturn.dragY) .. ", isDragging=" .. tostring(cardToReturn.isDragging))
     end
     
     for i = #stagedCards, 1, -1 do

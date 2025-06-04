@@ -2,6 +2,7 @@
 local GrabberClass = require("grabber")
 local cardData = require("cardData")
 local gameRules = require("gameRules")
+local discardPile = require("discardPile")
 
 -- Game state variables
 local gameState = "loading" -- all game states
@@ -9,9 +10,7 @@ local player1Deck = {}
 local player2Deck = {} -- AI player
 local player1Hand = {}
 local player2Hand = {}
-local player1Mana = 10 -- Changed starting mana to 10
-local player2Mana = 10 -- Changed starting mana to 10
-local maxMana = 20 -- Increased max mana
+local maxMana = 10 -- Max mana is 10
 local currentTurn = 1 -- Track turns
 local currentPlayer = 1 -- 1 for player, 2 for AI
 
@@ -27,7 +26,7 @@ local locations = {
         player2Cards = {}, -- max 4 cards
         player1Power = 0,
         player2Power = 0,
-        winner = nil -- nil, 1, 2, or "tie"
+        winner = nil -- nil, 1, 2, or "tie
     },
     {
         name = "Ancient Temple", 
@@ -54,7 +53,7 @@ local revealPhase = {
     timer = 0,
     delay = 1.0,
     currentLocation = 1,
-    playerFirst = 1 -- which player's cards reveal first
+    playerFirst = 1 
 }
 
 -- AI turn timer
@@ -97,18 +96,18 @@ function love.load()
     gameState = "playing"
 end
 
--- Handle window resize
+-- window resize
 function love.resize(w, h)
-    -- Update any necessary UI elements based on new window size
+
     print("Window resized to: " .. w .. "x" .. h)
 end
 
 function initializeGame()
     print("Initializing location-based card game...")
     
-    -- Reset game state with new mana values
-    player1Mana = 10
-    player2Mana = 10
+    -- Reset game state with correct starting mana
+    player1Mana = 6
+    player2Mana = 6
     currentTurn = 1
     currentPlayer = 1
     aiIsThinking = false
@@ -120,6 +119,9 @@ function initializeGame()
     stagedCards = {}
     player1Points = 0
     player2Points = 0
+    
+    -- Initialize discard pile system
+    discardPile.initialize()
     
     -- Reset locations
     for i, location in ipairs(locations) do
@@ -152,6 +154,7 @@ function initializeGame()
     print("- Player 2: " .. #player2Hand .. " cards in hand")
     print("- 3 locations available for play")
     print("- Starting mana: " .. player1Mana)
+    print("- Discard pile system ready")
 end
 
 function love.update(dt)
@@ -166,8 +169,11 @@ function love.update(dt)
             return
         end
         
+        -- Update location powers continuously
+        updateLocationPowers()
+        
         if gamePhase == "staging" then
-            -- Handle AI staging during player's turn
+            -- Handle AI staging during players turn
             if currentPlayer == 2 and not aiIsThinking then
                 aiIsThinking = true
                 aiTurnTimer = aiTurnDelay
@@ -177,11 +183,53 @@ function love.update(dt)
                 if aiTurnTimer <= 0 then
                     aiStageCards()
                     aiIsThinking = false
-                    currentPlayer = 1 -- Return to player for final submissions
+                    currentPlayer = 1 
                 end
             end
         elseif gamePhase == "reveal" then
             handleRevealPhase(dt)
+        end
+    end
+end
+
+-- location powers with proper validation
+function updateLocationPowers()
+    for i, location in ipairs(locations) do
+
+        local p1Power = 0
+        for _, card in ipairs(location.player1Cards) do
+            local cardPower = card.power or 0
+            p1Power = p1Power + cardPower
+
+            if cardPower == 0 and card.id then
+                local originalCard = cardData.getCard(card.id)
+                if originalCard and originalCard.power then
+                    print("WARNING: Card " .. card.name .. " missing power, should be " .. originalCard.power)
+                    card.power = originalCard.power
+                    p1Power = p1Power + originalCard.power
+                end
+            end
+        end
+        location.player1Power = p1Power
+        
+        -- Player 2 power with validation
+        local p2Power = 0
+        for _, card in ipairs(location.player2Cards) do
+            local cardPower = card.power or 0
+            p2Power = p2Power + cardPower
+
+            if cardPower == 0 and card.id then
+                local originalCard = cardData.getCard(card.id)
+                if originalCard and originalCard.power then
+                    print("WARNING: Card " .. card.name .. " missing power, should be " .. originalCard.power)
+                    card.power = originalCard.power
+                    p2Power = p2Power + originalCard.power
+                end
+            end
+        end
+        location.player2Power = p2Power
+        if p1Power > 0 or p2Power > 0 then
+            print("DEBUG: Location " .. location.name .. " - P1 cards: " .. #location.player1Cards .. " (power: " .. p1Power .. "), P2 cards: " .. #location.player2Cards .. " (power: " .. p2Power .. ")")
         end
     end
 end
@@ -195,31 +243,14 @@ function handleRevealPhase(dt)
     
     if revealPhase.timer >= revealPhase.delay then
         -- Move to next reveal step
-        revealPhase.timer = 0
+        revealPhase.timer = 2
         
         if revealPhase.currentLocation <= #locations then
             local location = locations[revealPhase.currentLocation]
             print("Revealing cards at " .. location.name)
             
-            -- Calculate power for this location
-            location.player1Power = gameRules.calculateLocationPower(location.player1Cards)
-            location.player2Power = gameRules.calculateLocationPower(location.player2Cards)
-            
-            -- Determine winner and update scores properly
-            if location.player1Power > location.player2Power then
-                location.winner = 1
-                local points = location.player1Power - location.player2Power
-                player1Points = player1Points + points
-                print("Player 1 wins " .. location.name .. " (+" .. points .. " points)")
-            elseif location.player2Power > location.player1Power then
-                location.winner = 2
-                local points = location.player2Power - location.player1Power
-                player2Points = player2Points + points
-                print("Player 2 wins " .. location.name .. " (+" .. points .. " points)")
-            else
-                location.winner = "tie"
-                print(location.name .. " is a tie!")
-            end
+
+            calculateAndAwardLocationPoints(location)
             
             revealPhase.currentLocation = revealPhase.currentLocation + 1
         else
@@ -229,16 +260,102 @@ function handleRevealPhase(dt)
     end
 end
 
+-- calculate and award points based on power difference
+function calculateAndAwardLocationPoints(location)
+
+    location.player1Power = calculateLocationPowerCorrectly(location.player1Cards)
+    location.player2Power = calculateLocationPowerCorrectly(location.player2Cards)
+    
+    print("=== SCORING " .. location.name .. " ===")
+    print("Player 1 Power: " .. location.player1Power .. " (from " .. #location.player1Cards .. " cards)")
+    print("Player 2 Power: " .. location.player2Power .. " (from " .. #location.player2Cards .. " cards)")
+    
+    -- List all cards at this location for debugging
+    print("P1 Cards at " .. location.name .. ":")
+    for i, card in ipairs(location.player1Cards) do
+        print("  " .. i .. ": " .. (card.name or "Unknown") .. " (Power: " .. (card.power or 0) .. ")")
+    end
+    print("P2 Cards at " .. location.name .. ":")
+    for i, card in ipairs(location.player2Cards) do
+        print("  " .. i .. ": " .. (card.name or "Unknown") .. " (Power: " .. (card.power or 0) .. ")")
+    end
+    
+    if location.player1Power > location.player2Power then
+        local pointsAwarded = location.player1Power - location.player2Power
+        location.winner = 1
+        player1Points = player1Points + pointsAwarded
+        
+        print("✓ Player 1 WINS " .. location.name .. "!")
+        print("✓ Points awarded to Player 1: " .. pointsAwarded)
+        print("✓ Player 1 total points: " .. player1Points)
+        
+    elseif location.player2Power > location.player1Power then
+        local pointsAwarded = location.player2Power - location.player1Power
+        location.winner = 2
+        player2Points = player2Points + pointsAwarded
+        
+        print("✓ Player 2 (AI) WINS " .. location.name .. "!")
+        print("✓ Points awarded to Player 2: " .. pointsAwarded)
+        print("✓ Player 2 total points: " .. player2Points)
+        
+    else
+        location.winner = "tie"
+        print("⚪ " .. location.name .. " is a TIE!")
+        print("⚪ No points awarded (both players have " .. location.player1Power .. " power)")
+    end
+    
+    print("=== Current Score: P1=" .. player1Points .. " | P2=" .. player2Points .. " ===\n")
+end
+
+-- Calculate location power correctly with proper validation
+function calculateLocationPowerCorrectly(cards)
+    local totalPower = 0
+    for _, card in ipairs(cards) do
+        if card and card.power then
+            totalPower = totalPower + card.power
+        elseif card and card.id then
+
+            local originalCard = cardData.getCard(card.id)
+            if originalCard and originalCard.power then
+                totalPower = totalPower + originalCard.power
+                card.power = originalCard.power 
+            end
+        end
+    end
+    return totalPower
+end
+
 function endRevealPhase()
     revealPhase.isRevealing = false
     revealPhase.currentLocation = 1
     gamePhase = "staging"
     
-    print("\n=== Turn " .. currentTurn .. " Results ===")
+    print("\n=== Turn " .. currentTurn .. " FINAL Results ===")
     print("Player 1 Total Points: " .. player1Points)
     print("Player 2 Total Points: " .. player2Points)
     
-    -- Start next turn
+    -- Show detailed location results
+    print("\nLocation Winners:")
+    for i, location in ipairs(locations) do
+        if location.winner == 1 then
+            print("  " .. location.name .. ": Player 1 (" .. location.player1Power .. " vs " .. location.player2Power .. ")")
+        elseif location.winner == 2 then
+            print("  " .. location.name .. ": Player 2 (" .. location.player2Power .. " vs " .. location.player1Power .. ")")
+        else
+            print("  " .. location.name .. ": TIE (" .. location.player1Power .. " vs " .. location.player2Power .. ")")
+        end
+    end
+    
+    -- Move all played cards to discard pile
+    discardPile.moveLocationCardsToDiscard(locations, currentTurn)
+    
+
+    if currentTurn % 3 == 0 then
+        discardPile.printDiscardPileInfo(1)
+        discardPile.printDiscardPileInfo(2)
+    end
+    
+
     startNextTurn()
 end
 
@@ -247,20 +364,22 @@ function startNextTurn()
     currentPlayer = 1
     bothPlayersReady = false
     
-    -- Increase mana by 2 each turn
+    -- Increase mana by 2 each turn, capped at 10
     player1Mana = math.min(player1Mana + 2, maxMana)
     player2Mana = math.min(player2Mana + 2, maxMana)
+    
+    print("Turn " .. currentTurn .. " - Player mana increased to: " .. player1Mana .. "/" .. maxMana)
     
     -- Draw cards
     gameRules.drawCardsForTurn(player1Deck, player1Hand, "Player 1")
     gameRules.drawCardsForTurn(player2Deck, player2Hand, "Player 2")
     
-    -- Enforce hand limits
+    -- hand limits
     gameRules.enforceHandSizeLimit(player1Hand, "Player 1")
     gameRules.enforceHandSizeLimit(player2Hand, "Player 2")
     
     print("\n=== Turn " .. currentTurn .. " begins ===")
-    print("Mana: " .. player1Mana .. " each")
+    print("Current mana: Player 1=" .. player1Mana .. ", Player 2=" .. player2Mana)
 end
 
 function love.draw()
@@ -315,16 +434,25 @@ function drawLocations()
         love.graphics.setColor(1, 1, 1)
         love.graphics.printf(location.name, x, y + 5, locationWidth, "center")
         
-        -- Power display
+
         love.graphics.setFont(love.graphics.newFont(14))
         local powerText = "P1: " .. location.player1Power .. " | P2: " .. location.player2Power
+        
         if location.winner == 1 then
-            love.graphics.setColor(0.2, 1, 0.2)
+            love.graphics.setColor(0.2, 1, 0.2) -- Green for Player 1 win
+            local pointsWon = location.player1Power - location.player2Power
+            powerText = powerText .. " (P1 +" .. pointsWon .. "pts)"
         elseif location.winner == 2 then
-            love.graphics.setColor(1, 0.2, 0.2)
+            love.graphics.setColor(1, 0.2, 0.2) -- Red for Player 2 win
+            local pointsWon = location.player2Power - location.player1Power
+            powerText = powerText .. " (P2 +" .. pointsWon .. "pts)"
+        elseif location.winner == "tie" then
+            love.graphics.setColor(1, 1, 0.2) -- Yellow for tie
+            powerText = powerText .. " (TIE)"
         else
-            love.graphics.setColor(1, 1, 0.8)
+            love.graphics.setColor(1, 1, 0.8) -- Default white
         end
+        
         love.graphics.printf(powerText, x, y + 25, locationWidth, "center")
         
         -- Enemy area background
@@ -336,71 +464,64 @@ function drawLocations()
         -- Draw enemy cards (top)
         drawLocationCards(location.player2Cards, x + 15, y + 50, true)
         
-        -- Draw divider
+        -- divider
         love.graphics.setColor(0.6, 0.6, 0.6)
         love.graphics.line(x + 10, y + 180, x + locationWidth - 10, y + 180)
         
-        -- Player area background - this is the drop zone (FIXED COORDINATES)
+        -- Player area background 
         love.graphics.setColor(0.2, 0.4, 0.2, 0.3)
         love.graphics.rectangle("fill", x + 5, y + 185, locationWidth - 10, 110)
         love.graphics.setColor(0.3, 0.6, 0.3)
         love.graphics.rectangle("line", x + 5, y + 185, locationWidth - 10, 110)
         
-        -- Player area label
-        love.graphics.setColor(0.8, 0.8, 0.8)
-        love.graphics.setFont(love.graphics.newFont(10))
-        love.graphics.printf("Your Cards (" .. #location.player1Cards .. "/4)", x + 10, y + 190, locationWidth - 20, "left")
-        
+
         -- Draw player cards (bottom) - positioned within the green area
-        drawLocationCards(location.player1Cards, x + 15, y + 205, false)
+        drawLocationCards(location.player1Cards, x + 15, y + 183, false)
     end
 end
 
+
 function drawLocationCards(cards, startX, startY, isEnemy)
-    local cardSpacing = 85 -- Reduced spacing to fit better
-    
-    -- First draw all empty slots
-    for i = 1, 4 do
-        local x = startX + (i - 1) * cardSpacing
+    local cardSpacing = 85 
+    local maxSlots = 4
+
+    for slot = 1, maxSlots do
+        local x = startX + (slot - 1) * cardSpacing
         local y = startY
-        
+
+        -- Draw slot background
         love.graphics.setColor(0.2, 0.2, 0.2, 0.5)
         love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
         love.graphics.setColor(0.5, 0.5, 0.5)
         love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
-        
-        -- Add slot number
+
+        -- Add slot number label
         love.graphics.setColor(0.7, 0.7, 0.7)
         love.graphics.setFont(love.graphics.newFont(10))
-        love.graphics.printf("Slot " .. tostring(i), x + 2, y + cardHeight/2 - 5, cardWidth - 4, "center")
-    end
-    
-    -- Then draw cards on top of slots
-    for i, card in ipairs(cards) do
-        local x = startX + (i - 1) * cardSpacing
-        local y = startY
-        
-        if isEnemy then
-            -- For reveal phase or after, show actual cards
-            if gamePhase == "reveal" or revealPhase.isRevealing then
-                -- Draw actual enemy card
-                drawCard(card, x, y)
+        love.graphics.printf("Slot " .. slot, x + 2, y + cardHeight/2 - 5, cardWidth - 4, "center")
+
+
+        local card = cards[slot]
+        if card then
+            love.graphics.setColor(1, 1, 1)
+            if isEnemy then
+                if gamePhase == "reveal" or revealPhase.isRevealing then
+                    -- Draw revealed enemy card at exact slot position
+                    drawCard(card, x, y)
+                else
+                    -- Enemy card back at exact slot position
+                    love.graphics.setColor(0.6, 0.3, 0.3)
+                    love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
+                    love.graphics.setColor(0.3, 0.1, 0.1)
+                    love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
+                    love.graphics.setColor(0.4, 0.2, 0.2)
+                    love.graphics.setFont(love.graphics.newFont(10))
+                    love.graphics.printf("CARD", x + 2, y + cardHeight/2 - 5, cardWidth - 4, "center")
+                end
             else
-                -- Draw card back for enemy during staging
-                love.graphics.setColor(0.6, 0.3, 0.3)
-                love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
-                love.graphics.setColor(0.3, 0.1, 0.1)
-                love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
-                
-                -- Draw card back pattern
-                love.graphics.setColor(0.4, 0.2, 0.2)
-                love.graphics.setFont(love.graphics.newFont(12))
-                love.graphics.printf("CARD", x + 2, y + cardHeight/2 - 6, cardWidth - 4, "center")
+
+                drawCard(card, x, y)
             end
-        else
-            -- Draw player card normally - make sure it's visible
-            love.graphics.setColor(1, 1, 1) -- Reset color to white
-            drawCard(card, x, y)
         end
     end
 end
@@ -477,12 +598,12 @@ function drawEnemyHand()
         love.graphics.setColor(0.3, 0.1, 0.1)
         love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
         
-        -- Draw card back pattern
         love.graphics.setColor(0.4, 0.2, 0.2)
         love.graphics.setFont(love.graphics.newFont(10))
         love.graphics.printf("CARD", x + 2, y + cardHeight/2 - 5, cardWidth - 4, "center")
     end
 end
+
 
 function drawStagedCards()
     if #stagedCards == 0 then return end
@@ -505,7 +626,8 @@ function drawStagedCards()
         local x = startX + (i - 1) * spacing
         local y = 530
         
-        if stagedCard.card.isDragging then
+
+        if stagedCard.card.isDragging and stagedCard.card.dragX and stagedCard.card.dragY then
             x = stagedCard.card.dragX
             y = stagedCard.card.dragY
         end
@@ -521,39 +643,52 @@ function drawStagedCards()
     end
 end
 
+
 function drawCard(card, x, y)
     -- Ensure we have a valid card
     if not card then return end
+
+    local drawX = x
+    local drawY = y
+
+    if card.isDragging and card.dragX and card.dragY and grabber:isHolding() and grabber:getHeldCard() == card then
+        drawX = card.dragX
+        drawY = card.dragY
+        print("DEBUG: Using drag coordinates for " .. (card.name or "Unknown") .. " at (" .. drawX .. ", " .. drawY .. ")")
+    else
+        -- Use the provided slot coordinates (this is what was broken)
+        print("DEBUG: Using slot coordinates for " .. (card.name or "Unknown") .. " at (" .. drawX .. ", " .. drawY .. ")")
+    end
     
-    -- Card background with more visible colors
+    -- Card background
     love.graphics.setColor(0.9, 0.9, 1) -- Light blue-white background
-    love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
+    love.graphics.rectangle("fill", drawX, drawY, cardWidth, cardHeight)
     love.graphics.setColor(0.1, 0.1, 0.2) -- Dark border
-    love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
+    love.graphics.rectangle("line", drawX, drawY, cardWidth, cardHeight)
     
     -- Card image
     local cardImage = cardData.getCardImage(card.id)
     if cardImage then
         love.graphics.setColor(1, 1, 1)
         local scale = math.min(cardWidth / cardImage:getWidth(), (cardHeight - 30) / cardImage:getHeight())
-        local imgX = x + (cardWidth - cardImage:getWidth() * scale) / 2
-        local imgY = y + 5
+        local imgX = drawX + (cardWidth - cardImage:getWidth() * scale) / 2
+        local imgY = drawY + 5
         love.graphics.draw(cardImage, imgX, imgY, 0, scale, scale)
     else
-        -- If no image, draw a placeholder
+        -- fail case
         love.graphics.setColor(0.7, 0.7, 0.9)
-        love.graphics.rectangle("fill", x + 5, y + 5, cardWidth - 10, cardHeight - 35)
+        love.graphics.rectangle("fill", drawX + 5, drawY + 5, cardWidth - 10, cardHeight - 35)
         love.graphics.setColor(0.3, 0.3, 0.5)
-        love.graphics.rectangle("line", x + 5, y + 5, cardWidth - 10, cardHeight - 35)
+        love.graphics.rectangle("line", drawX + 5, drawY + 5, cardWidth - 10, cardHeight - 35)
     end
     
-    -- Card info with better contrast
+    -- Card info 
     love.graphics.setColor(0, 0, 0) -- Black text
     love.graphics.setFont(love.graphics.newFont(9))
     -- Card name
-    love.graphics.printf(card.name or "Unknown", x + 2, y + cardHeight - 25, cardWidth - 4, "center")
+    love.graphics.printf(card.name or "Unknown", drawX + 2, drawY + cardHeight - 25, cardWidth - 4, "center")
     -- Mana cost and power
-    love.graphics.printf("M:" .. (card.manaCost or 0) .. " P:" .. (card.power or 0), x + 2, y + cardHeight - 12, cardWidth - 4, "center")
+    love.graphics.printf("M:" .. (card.manaCost or 0) .. " P:" .. (card.power or 0), drawX + 2, drawY + cardHeight - 12, cardWidth - 4, "center")
 end
 
 function drawGameInfo()
@@ -582,16 +717,23 @@ function drawGameInfo()
     love.graphics.setFont(love.graphics.newFont(12))
     love.graphics.setColor(0.8, 0.8, 0.8)
     local screenHeight = love.graphics.getHeight()
-    love.graphics.printf("Drag cards to locations (4 max per location). ENTER: Submit plays | SPACE: End turn | R: Restart", 0, screenHeight - 20, screenWidth, "center")
+    love.graphics.printf("Drag cards to locations (4 max per location). ENTER: Submit plays | SPACE: End turn | R: Restart | D: Discard info", 0, screenHeight - 20, screenWidth, "center")
 end
 
 function drawManaDisplay()
     local screenWidth = love.graphics.getWidth()
     local screenHeight = love.graphics.getHeight()
     
+    -- Calculate actual available mana
+    local stagedCost = 0
+    for _, stagedCard in ipairs(stagedCards) do
+        stagedCost = stagedCost + (stagedCard.card.manaCost or 0)
+    end
+    local availableMana = player1Mana - stagedCost
+    
     -- Player Mana UI (bottom right)
     local playerUIWidth = 220
-    local playerUIHeight = 90
+    local playerUIHeight = 120
     local playerUIX = screenWidth - playerUIWidth - 20
     local playerUIY = screenHeight - playerUIHeight - 20
     
@@ -606,16 +748,30 @@ function drawManaDisplay()
     love.graphics.setFont(love.graphics.newFont(18))
     love.graphics.printf("PLAYER", playerUIX + 10, playerUIY + 5, playerUIWidth - 20, "center")
     
-    -- FORCE UPDATE THE DISPLAY VALUES
-    love.graphics.setFont(love.graphics.newFont(24))
-    love.graphics.setColor(0.3, 0.8, 1)
-    love.graphics.printf("Mana: " .. tostring(player1Mana), playerUIX + 10, playerUIY + 30, playerUIWidth - 20, "center")
+    -- Show staged cost
+    love.graphics.setFont(love.graphics.newFont(20))
+    if stagedCost > 0 then
+        love.graphics.setColor(availableMana >= 0 and 0.3 or 1, availableMana >= 0 and 0.8 or 0.3, 0.3)
+        love.graphics.printf("Mana: " .. availableMana .. "/" .. player1Mana, playerUIX + 10, playerUIY + 25, playerUIWidth - 20, "center")
+    else
+        love.graphics.setColor(0.3, 0.8, 1)
+        love.graphics.printf("Mana: " .. player1Mana, playerUIX + 10, playerUIY + 25, playerUIWidth - 20, "center")
+    end
     
     love.graphics.setFont(love.graphics.newFont(16))
     love.graphics.setColor(0.8, 1, 0.8)
-    love.graphics.printf("Points: " .. tostring(player1Points), playerUIX + 10, playerUIY + 65, playerUIWidth - 20, "center")
+    love.graphics.printf("Points: " .. tostring(player1Points), playerUIX + 10, playerUIY + 50, playerUIWidth - 20, "center")
     
-
+    -- Discard pile info
+    love.graphics.setFont(love.graphics.newFont(12))
+    love.graphics.setColor(0.7, 0.9, 1)
+    local discardCount = discardPile.getDiscardCount(1)
+    love.graphics.printf("Discard: " .. discardCount .. " cards", playerUIX + 10, playerUIY + 75, playerUIWidth - 20, "center")
+    
+    local totalPowerPlayed = discardPile.getTotalPowerPlayed(1)
+    love.graphics.printf("Power played: " .. totalPowerPlayed, playerUIX + 10, playerUIY + 90, playerUIWidth - 20, "center")
+    
+    -- AI UI
     local aiUIX = screenWidth - playerUIWidth - 20
     local aiUIY = 20
     
@@ -630,19 +786,22 @@ function drawManaDisplay()
     love.graphics.setFont(love.graphics.newFont(18))
     love.graphics.printf("AI OPPONENT", aiUIX + 10, aiUIY + 5, playerUIWidth - 20, "center")
     
-    -- FORCE UPDATE THE DISPLAY VALUES
     love.graphics.setFont(love.graphics.newFont(24))
     love.graphics.setColor(1, 0.3, 0.3)
-    love.graphics.printf("Mana: " .. tostring(player2Mana), aiUIX + 10, aiUIY + 30, playerUIWidth - 20, "center")
+    love.graphics.printf("Mana: " .. tostring(player2Mana), aiUIX + 10, aiUIY + 25, playerUIWidth - 20, "center")
     
     love.graphics.setFont(love.graphics.newFont(16))
     love.graphics.setColor(1, 0.8, 0.8)
-    love.graphics.printf("Points: " .. tostring(player2Points), aiUIX + 10, aiUIY + 65, playerUIWidth - 20, "center")
+    love.graphics.printf("Points: " .. tostring(player2Points), aiUIX + 10, aiUIY + 50, playerUIWidth - 20, "center")
     
-    -- DEBUGGER Print current values to console when they change
-    if love.timer.getTime() % 1 < 0.1 then -- Print every second
-        print("DEBUG - Current values: P1 Mana=" .. player1Mana .. ", P1 Points=" .. player1Points .. ", P2 Mana=" .. player2Mana .. ", P2 Points=" .. player2Points)
-    end
+    -- AI Discard pile info
+    love.graphics.setFont(love.graphics.newFont(12))
+    love.graphics.setColor(1, 0.7, 0.7)
+    local aiDiscardCount = discardPile.getDiscardCount(2)
+    love.graphics.printf("Discard: " .. aiDiscardCount .. " cards", aiUIX + 10, aiUIY + 75, playerUIWidth - 20, "center")
+    
+    local aiTotalPowerPlayed = discardPile.getTotalPowerPlayed(2)
+    love.graphics.printf("Power played: " .. aiTotalPowerPlayed, aiUIX + 10, aiUIY + 90, playerUIWidth - 20, "center")
     
     -- Mana cost indicator when dragging (center right)
     if grabber:isHolding() then
@@ -694,7 +853,7 @@ function drawManaDisplay()
     love.graphics.printf("Turn " .. currentTurn, turnUIX + 10, turnUIY + 10, turnUIWidth - 20, "center")
 end
 
--- Mouse handling
+
 function love.mousepressed(x, y, button)
     if button == 1 and gameState == "playing" and gamePhase == "staging" and currentPlayer == 1 then
         local screenHeight = love.graphics.getHeight()
@@ -703,11 +862,11 @@ function love.mousepressed(x, y, button)
     end
 end
 
+-- Checking if dropping on a location first
 function love.mousereleased(x, y, button)
     if button == 1 and gameState == "playing" and gamePhase == "staging" and currentPlayer == 1 then
         local screenHeight = love.graphics.getHeight()
         local dynamicHandY = screenHeight - 140
-        -- Check if dropping on a location first with FIXED coordinates
         local locationDropped = checkLocationDrop(x, y)
         grabber:onMouseReleased(x, y, player1Hand, stagedCards, cardWidth, cardHeight, dynamicHandY, currentPlayer, player1Mana, locations, locationDropped)
     end
@@ -744,6 +903,31 @@ function love.keypressed(key)
             -- Skip to AI turn
             currentPlayer = 2
         end
+    elseif key == "d" then
+        -- Debug: Print discard pile info for both players (BROKEN)
+        print("\n=== DEBUG: Discard Pile Information ===")
+        discardPile.printDiscardPileInfo(1)
+        discardPile.printDiscardPileInfo(2)
+        
+
+        print("\n=== DEBUG: Current Location Status ===")
+        for i, location in ipairs(locations) do
+            print("Location " .. i .. " (" .. location.name .. "):")
+            print("  P1 Cards: " .. #location.player1Cards .. ", Power: " .. location.player1Power)
+            print("  P2 Cards: " .. #location.player2Cards .. ", Power: " .. location.player2Power)
+            if #location.player1Cards > 0 then
+                print("  P1 Card Details:")
+                for j, card in ipairs(location.player1Cards) do
+                    print("    " .. j .. ": " .. (card.name or "Unknown") .. " (Power: " .. (card.power or 0) .. ", ID: " .. (card.id or "None") .. ")")
+                end
+            end
+            if #location.player2Cards > 0 then
+                print("  P2 Card Details:")
+                for j, card in ipairs(location.player2Cards) do
+                    print("    " .. j .. ": " .. (card.name or "Unknown") .. " (Power: " .. (card.power or 0) .. ", ID: " .. (card.id or "None") .. ")")
+                end
+            end
+        end
     end
 end
 
@@ -753,8 +937,11 @@ function submitPlayerCards()
         return
     end
     
-    -- Check mana cost PROPERLY
-    local totalCost = grabber:calculateStagedManaCost(stagedCards)
+    -- Check mana cost
+    local totalCost = 0
+    for _, stagedCard in ipairs(stagedCards) do
+        totalCost = totalCost + (stagedCard.card.manaCost or 0)
+    end
     
     if totalCost > player1Mana then
         print("Not enough mana! Need " .. totalCost .. ", have " .. player1Mana)
@@ -763,28 +950,54 @@ function submitPlayerCards()
     
     print("BEFORE submission - Player1 Mana: " .. player1Mana .. ", Total Cost: " .. totalCost)
     
-    -- Play cards to locations
+
     for _, stagedCard in ipairs(stagedCards) do
         local location = locations[stagedCard.locationIndex]
-        -- Make sure the card has all necessary properties
+        
+
+        local originalCard = cardData.getCard(stagedCard.card.id)
+        if not originalCard then
+            print("ERROR: Could not find original card data for ID " .. tostring(stagedCard.card.id))
+            return
+        end
+        
+        -- card in play
         local cardToPlay = {
-            id = stagedCard.card.id,
-            name = stagedCard.card.name,
-            type = stagedCard.card.type,
-            description = stagedCard.card.description,
-            imagePath = stagedCard.card.imagePath,
-            manaCost = stagedCard.card.manaCost,
-            power = stagedCard.card.power or 0
+            id = originalCard.id,
+            name = originalCard.name,
+            type = originalCard.type,
+            description = originalCard.description,
+            imagePath = originalCard.imagePath,
+            manaCost = originalCard.manaCost,
+            power = originalCard.power or 0
+
         }
+        
+
+        for i = #player1Hand, 1, -1 do
+            if player1Hand[i].id == stagedCard.card.id then
+                table.remove(player1Hand, i)
+                break
+            end
+        end
+        
+
         table.insert(location.player1Cards, cardToPlay)
-        print("Played " .. stagedCard.card.name .. " to " .. location.name .. " (Power: " .. cardToPlay.power .. ", Cost: " .. cardToPlay.manaCost .. ")")
+        
+        print("✓ SUCCESSFULLY played " .. cardToPlay.name .. " to " .. location.name .. " slot " .. #location.player1Cards .. " (Power: " .. cardToPlay.power .. ", Cost: " .. cardToPlay.manaCost .. ")")
+        print("DEBUG: Card has dragX=" .. tostring(cardToPlay.dragX) .. ", dragY=" .. tostring(cardToPlay.dragY) .. ", isDragging=" .. tostring(cardToPlay.isDragging))
+        
+
+        local newPower = calculateLocationPowerCorrectly(location.player1Cards)
+        location.player1Power = newPower
+        print("✓ Location " .. location.name .. " new P1 power: " .. newPower)
     end
     
+    -- sub mana
     player1Mana = player1Mana - totalCost
     print("AFTER submission - Player1 Mana: " .. player1Mana .. " (deducted " .. totalCost .. ")")
     
-    -- Clear staged cards
-    stagedCards = {} -- Clear the entire array
+    stagedCards = {}
     
     currentPlayer = 2
     print("Cards submitted! AI's turn...")
@@ -802,7 +1015,6 @@ function aiStageCards()
         local card = player2Hand[randomCardIndex]
         
         if card.manaCost <= player2Mana then
-            -- Find a location with space
             local availableLocations = {}
             for i, location in ipairs(locations) do
                 if #location.player2Cards < 4 then
@@ -814,16 +1026,39 @@ function aiStageCards()
                 local targetLocation = availableLocations[love.math.random(1, #availableLocations)]
                 local location = locations[targetLocation]
                 
-                -- Play the card and PROPERLY DEDUCT AI MANA
                 table.remove(player2Hand, randomCardIndex)
-                table.insert(location.player2Cards, card)
-                print("BEFORE AI mana deduction: " .. player2Mana .. ", Card cost: " .. card.manaCost)
-                player2Mana = player2Mana - card.manaCost
-                print("AFTER AI mana deduction: " .. player2Mana)
                 
-                print("AI played " .. card.name .. " to " .. location.name .. " (Power: " .. card.power .. ", Cost: " .. card.manaCost .. ", Remaining mana: " .. player2Mana .. ")")
+                local originalCard = cardData.getCard(card.id)
+                if not originalCard then
+                    print("ERROR: Could not find original card data for AI card ID " .. tostring(card.id))
+                    break
+                end
+                
+                local cardToPlay = {
+                    id = originalCard.id,
+                    name = originalCard.name,
+                    type = originalCard.type,
+                    description = originalCard.description,
+                    imagePath = originalCard.imagePath,
+                    manaCost = originalCard.manaCost,
+                    power = originalCard.power or 0
+                }
+                
+
+                table.insert(location.player2Cards, cardToPlay)
+                
+                -- Deduct mana
+                player2Mana = player2Mana - cardToPlay.manaCost
+                
+                print("✓ AI played " .. cardToPlay.name .. " to " .. location.name .. " slot " .. #location.player2Cards .. " (Power: " .. cardToPlay.power .. ", Cost: " .. cardToPlay.manaCost .. ", Remaining mana: " .. player2Mana .. ")")
+                print("DEBUG: AI card has dragX=" .. tostring(cardToPlay.dragX) .. ", dragY=" .. tostring(cardToPlay.dragY) .. ", isDragging=" .. tostring(cardToPlay.isDragging))
+                
+
+                local newPower = calculateLocationPowerCorrectly(location.player2Cards)
+                location.player2Power = newPower
+                print("✓ Location " .. location.name .. " new P2 power: " .. newPower)
             else
-                break -- No locations available
+                break 
             end
         end
         
@@ -862,6 +1097,45 @@ function drawGameOverScreen()
     love.graphics.printf(winner .. " Wins!", 0, screenHeight / 2 - 40, screenWidth, "center")
     love.graphics.printf("Final Score: P1: " .. player1Points .. " | P2: " .. player2Points, 0, screenHeight / 2, screenWidth, "center")
     
-    love.graphics.printf("Press R to play again", 0, screenHeight / 2 + 60, screenWidth, "center")
-    love.graphics.printf("Press ESC to quit", 0, screenHeight / 2 + 100, screenWidth, "center")
+    -- Display final discard pile statistics
+    love.graphics.setFont(love.graphics.newFont(16))
+    love.graphics.setColor(0.8, 0.8, 1)
+    local p1DiscardCount = discardPile.getDiscardCount(1)
+    local p2DiscardCount = discardPile.getDiscardCount(2)
+    local p1TotalPower = discardPile.getTotalPowerPlayed(1)
+    local p2TotalPower = discardPile.getTotalPowerPlayed(2)
+    
+    love.graphics.printf("Cards Played - P1: " .. p1DiscardCount .. " | P2: " .. p2DiscardCount, 0, screenHeight / 2 + 30, screenWidth, "center")
+    love.graphics.printf("Total Power Played - P1: " .. p1TotalPower .. " | P2: " .. p2TotalPower, 0, screenHeight / 2 + 50, screenWidth, "center")
+    
+    -- Show detailed final scoring breakdown
+    love.graphics.setFont(love.graphics.newFont(14))
+    love.graphics.setColor(0.7, 1, 0.7)
+    love.graphics.printf("FINAL LOCATION RESULTS:", 0, screenHeight / 2 + 80, screenWidth, "center")
+    
+    local yOffset = 100
+    for i, location in ipairs(locations) do
+        local resultText = location.name .. ": "
+        if location.winner == 1 then
+            local points = location.player1Power - location.player2Power
+            resultText = resultText .. "P1 wins (" .. location.player1Power .. " vs " .. location.player2Power .. ") +" .. points .. "pts"
+            love.graphics.setColor(0.2, 1, 0.2)
+        elseif location.winner == 2 then
+            local points = location.player2Power - location.player1Power
+            resultText = resultText .. "P2 wins (" .. location.player2Power .. " vs " .. location.player1Power .. ") +" .. points .. "pts"
+            love.graphics.setColor(1, 0.2, 0.2)
+        else
+            resultText = resultText .. "TIE (" .. location.player1Power .. " vs " .. location.player2Power .. ")"
+            love.graphics.setColor(1, 1, 0.2)
+        end
+        love.graphics.printf(resultText, 0, screenHeight / 2 + yOffset, screenWidth, "center")
+        yOffset = yOffset + 20
+    end
+    
+    love.graphics.setFont(love.graphics.newFont(18))
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Press R to play again", 0, screenHeight / 2 + yOffset + 20, screenWidth, "center")
+    love.graphics.printf("Press ESC to quit", 0, screenHeight / 2 + yOffset + 50, screenWidth, "center")
+    love.graphics.setFont(love.graphics.newFont(14))
+    love.graphics.setColor(0.8, 0.8, 0.8)
 end
