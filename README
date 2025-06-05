@@ -12,16 +12,43 @@
 
 --  README
 
+--  About 
+--  start with 3 cards 
+--  draw 1 card per turn
+--  able to skip turn if no cards can be played
+--  play cards by dragging them to the playing area
+--  cards can be played in any order
+--  cards vs cards in designated locations (3 Locations)
+--  Start with 6 cards in hand
+--  Gain 2 mana per turn capped at 10 mana
+--  Max hand size is 7 cards
+--  30 Playable cards in index
+--  10 Power up cards
+-- points are awarded depending on winning difference if in the same location
+--  First to 20 points wins
+--  Win, Lose, or Draw 
+--  Changes will come for final project to improve game flow and landscape
+
+
 --  main.lua
 
-
+--  Imports and initializes 
+--  Decides all text, UI, and window elements
+--  preloads
+--  AI card handling, hover, playing area
+--  All Game stages 
+--  Enables card powers
+--  Calculates mana, and point allocation 
+--  drop zone areas for clear game flow
+--  3 different locations with 4 spots per location 
 
 
 
 --  grabber.lua 
 
-
-
+--  kept base of code from prior grabber in project 1 & 2
+--  placces, grabs and moves cards
+--  Hover over cards to see their info
 
 
 --  gameRules.lua
@@ -29,8 +56,9 @@
 --  establishes all constant game rules
 --  dekc size,max hand size, cards drawn, etc...
 --  validates deck incase of errors
---  shuffles deck
---  
+--  shuffles deals and places cards from deck
+--  tracks card types
+--  AI helper function
 
 
 
@@ -61,3 +89,7 @@
 --  checks cards data 
 
 
+--  AI Usage
+
+--  Helped debug syntax errors
+--  Helped correct missplacement of cards not being placed correctly 

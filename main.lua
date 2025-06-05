@@ -1,3 +1,4 @@
+
 -- Import modules
 local GrabberClass = require("grabber")
 local cardData = require("cardData")
@@ -60,14 +61,14 @@ local stagedCards = {} -- Cards staged for play this turn with location info
 local gamePhase = "staging" -- staging, reveal, scoring
 local revealPhase = {
     isRevealing = false,
-    timer = 0,
+    timer = -2,
     delay = 1.0,
     currentLocation = 1,
     playerFirst = 1 
 }
 
 -- AI turn timer
-local aiTurnTimer = 0
+local aiTurnTimer = -2
 local aiTurnDelay = 1.5
 local aiIsThinking = false
 local bothPlayersReady = false
@@ -130,7 +131,7 @@ function initializeGame()
     currentTurn = 1
     currentPlayer = 1
     aiIsThinking = false
-    aiTurnTimer = 0
+    aiTurnTimer = -2
     bothPlayersReady = false
     gamePhase = "staging"
     
@@ -158,7 +159,7 @@ function initializeGame()
     -- Reset reveal phase 
     revealPhase = {
         isRevealing = false,
-        timer = 0,
+        timer = -2,
         delay = 1.0,
         currentLocation = 1,
         playerFirst = 1
@@ -268,7 +269,7 @@ function handleRevealPhase(dt)
     
     if revealPhase.timer >= revealPhase.delay then
         -- next reveal step
-        revealPhase.timer = 01
+        revealPhase.timer = -2
         
         if revealPhase.currentLocation <= #locations then
             local location = locations[revealPhase.currentLocation]
@@ -365,7 +366,6 @@ function calculateAndAwardLocationPoints(location)
     print("=== Current Score: P1=" .. player1Points .. " | P2=" .. player2Points .. " ===\n")
 end
 
--- Calculate location power correctly
 function calculateLocationPowerCorrectly(cards)
     local totalPower = 0
     for _, card in ipairs(cards) do
@@ -563,10 +563,7 @@ function drawLocationCards(cards, startX, startY, isEnemy, locationIndex)
         love.graphics.setColor(0.6, 0.6, 0.6)
         love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
 
-        -- slot number label
-        love.graphics.setColor(0.7, 0.7, 0.7)
-        love.graphics.setFont(love.graphics.newFont(10))
-        love.graphics.printf("Slot " .. slot, x + 2, y + cardHeight/2 - 5, cardWidth - 4, "center")
+
 
         local card = cards[slot]
         if card then
@@ -576,14 +573,19 @@ function drawLocationCards(cards, startX, startY, isEnemy, locationIndex)
                     -- reveal enemy card
                     drawCard(card, x, y, true)
                 else
-                    -- back of enemy card
-                    love.graphics.setColor(0.6, 0.3, 0.3)
-                    love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
-                    love.graphics.setColor(0.3, 0.1, 0.1)
-                    love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
-                    love.graphics.setColor(0.4, 0.2, 0.2)
-                    love.graphics.setFont(love.graphics.newFont(10))
-                    love.graphics.printf("CARD", x + 2, y + cardHeight/2 - 5, cardWidth - 4, "center")
+                    local cardBackImage = cardData.getCardBackImage()
+                    if cardBackImage then
+                        love.graphics.setColor(1, 1, 1)
+                        local scale = math.min(cardWidth / cardBackImage:getWidth(), cardHeight / cardBackImage:getHeight())
+                        local imgX = x + (cardWidth - cardBackImage:getWidth() * scale) / 2
+                        local imgY = y + (cardHeight - cardBackImage:getHeight() * scale) / 2
+                        love.graphics.draw(cardBackImage, imgX, imgY, 0, scale, scale)
+                    else
+                        love.graphics.setColor(0.6, 0.3, 0.3)
+                        love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
+                        love.graphics.setColor(0.3, 0.1, 0.1)
+                        love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
+                    end
                 end
             else
                 drawCard(card, x, y, true)
@@ -654,14 +656,19 @@ function drawEnemyHand()
         local x = startX + (i - 1) * handSpacing
         local y = enemyHandY
         
-        love.graphics.setColor(0.6, 0.3, 0.3)
-        love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
-        love.graphics.setColor(0.3, 0.1, 0.1)
-        love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
-        
-        love.graphics.setColor(0.4, 0.2, 0.2)
-        love.graphics.setFont(love.graphics.newFont(10))
-        love.graphics.printf("CARD", x + 2, y + cardHeight/2 - 5, cardWidth - 4, "center")
+        local cardBackImage = cardData.getCardBackImage()
+        if cardBackImage then
+            love.graphics.setColor(1, 1, 1)
+            local scale = math.min(cardWidth / cardBackImage:getWidth(), cardHeight / cardBackImage:getHeight())
+            local imgX = x + (cardWidth - cardBackImage:getWidth() * scale) / 2
+            local imgY = y + (cardHeight - cardBackImage:getHeight() * scale) / 2
+            love.graphics.draw(cardBackImage, imgX, imgY, 0, scale, scale)
+        else
+            love.graphics.setColor(0.6, 0.3, 0.3)
+            love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
+            love.graphics.setColor(0.3, 0.1, 0.1)
+            love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
+        end
     end
 end
 
@@ -834,7 +841,7 @@ function drawGameInfo()
     -- Instructions (bottom of screen)
     love.graphics.setFont(love.graphics.newFont(11))
     love.graphics.setColor(0.9, 0.9, 0.9)
-    love.graphics.printf("Drag cards to locations (4 max). Hover for abilities. ENTER: Submit | SPACE: End turn | R: Restart | D: Debug", 0, screenHeight - 20, screenWidth, "center")
+    love.graphics.printf("First player to 20 points wins! Passively gain 2 mana per round. Drag cards to locations. Hover for abilities. ENTER: Play Turn | SPACE: End & Skip Turn | R: Restart | D: Debug", 0, screenHeight - 20, screenWidth, "center")
 end
 
 function drawManaDisplay()
@@ -1019,6 +1026,8 @@ function checkLocationDrop(x, y)
     return nil
 end
 
+
+  -- Will most likely be changed to ui buttons later
 function love.keypressed(key)
     print("Key pressed: " .. key .. " | Game state: " .. gameState)
     
@@ -1079,7 +1088,7 @@ end
 
 function submitPlayerCards()
     if #stagedCards == 0 then
-        print("No cards staged to submit!")
+        print("No cards staged in play!")
         return
     end
     
@@ -1254,7 +1263,7 @@ end
 function startRevealPhase()
     gamePhase = "reveal"
     revealPhase.isRevealing = true
-    revealPhase.timer = 0
+    revealPhase.timer = -2
     revealPhase.currentLocation = 1
     
     -- Who reveals first 
