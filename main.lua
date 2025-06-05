@@ -175,16 +175,12 @@ function initializeGame()
     gameRules.drawCardsForTurn(player1Deck, player1Hand, "Player 1")
     gameRules.drawCardsForTurn(player2Deck, player2Hand, "Player 2")
     
-    print("Game initialized:")
     print("- Player 1: " .. #player1Hand .. " cards in hand")
     print("- Player 2: " .. #player2Hand .. " cards in hand")
-    print("- 3 locations available for play")
+    print("- 3 playable locatations ")
     print("- Starting mana: " .. player1Mana)
-    print("- Card powers system ready")
-    print("- Discard pile system ready")
     
     gameState = "playing"
-    print("Game state set to: " .. gameState)
 end
 
 function love.update(dt)
@@ -234,6 +230,7 @@ function updateLocationPowers()
             if cardPower == 0 and card.id then
                 local originalCard = cardData.getCard(card.id)
                 if originalCard and originalCard.power then
+                    -- fail case
                     print("WARNING: Card " .. card.name .. " missing power, should be " .. originalCard.power)
                     card.power = originalCard.power
                     p1Power = p1Power + originalCard.power
@@ -251,6 +248,7 @@ function updateLocationPowers()
             if cardPower == 0 and card.id then
                 local originalCard = cardData.getCard(card.id)
                 if originalCard and originalCard.power then
+                    -- fail case
                     print("WARNING: Card " .. card.name .. " missing power, should be " .. originalCard.power)
                     card.power = originalCard.power
                     p2Power = p2Power + originalCard.power
@@ -274,7 +272,7 @@ function handleRevealPhase(dt)
         
         if revealPhase.currentLocation <= #locations then
             local location = locations[revealPhase.currentLocation]
-            print("Revealing cards at " .. location.name)
+            print("Revealing " .. location.name)
             
             -- Trigger powers
             triggerRevealPowers(location, revealPhase.currentLocation)
@@ -283,7 +281,6 @@ function handleRevealPhase(dt)
             
             revealPhase.currentLocation = revealPhase.currentLocation + 1
         else
-            -- All locations revealed, end reveal phase
             endRevealPhase()
         end
     end
@@ -301,10 +298,10 @@ function triggerRevealPowers(location, locationIndex)
         player2ManaBonus = player2ManaBonus
     }
     
-    -- Trigger Player 1 cards first
+    -- Trigger Player 1 cards
     for _, card in ipairs(location.player1Cards) do
         if cardPowers.hasSpecialAbility(card.id) then
-            print("Triggering " .. card.name .. "'s reveal power...")
+            print("Triggering " .. card.name .. "'s power...")
             cardPowers.triggerPower(card.id, "on_reveal", gameStateData, 1, locationIndex, card)
         end
     end
@@ -312,7 +309,7 @@ function triggerRevealPowers(location, locationIndex)
     -- Then trigger Player 2 cards
     for _, card in ipairs(location.player2Cards) do
         if cardPowers.hasSpecialAbility(card.id) then
-            print("Triggering " .. card.name .. "'s reveal power...")
+            print("Triggering " .. card.name .. "'s power...")
             cardPowers.triggerPower(card.id, "on_reveal", gameStateData, 2, locationIndex, card)
         end
     end
@@ -466,7 +463,7 @@ end
 function drawLoadingScreen()
     love.graphics.setColor(1, 1, 1)
     love.graphics.setFont(love.graphics.newFont(24))
-    love.graphics.printf("Loading Fantasy Card Game with Powers...", 0, screenHeight / 2 - 12, screenWidth, "center")
+    love.graphics.printf("Loading GalaDeer...", 0, screenHeight / 2 - 12, screenWidth, "center")
 end
 
 function drawGameScreen()
@@ -508,15 +505,15 @@ function drawLocations()
         local powerText = "P1: " .. location.player1Power .. " | P2: " .. location.player2Power
 
         if location.winner == 1 then
-            love.graphics.setColor(0.3, 1, 0.3) -- Brighter green for Player 1 win
+            love.graphics.setColor(0.3, 1, 0.3) 
             local pointsWon = location.player1Power - location.player2Power
             powerText = powerText .. " (P1 +" .. pointsWon .. "pts)"
         elseif location.winner == 2 then
-            love.graphics.setColor(1, 0.3, 0.3) -- Brighter red for Player 2 win
+            love.graphics.setColor(1, 0.3, 0.3) 
             local pointsWon = location.player2Power - location.player1Power
             powerText = powerText .. " (P2 +" .. pointsWon .. "pts)"
         elseif location.winner == "tie" then
-            love.graphics.setColor(1, 1, 0.3) -- Brighter yellow for tie
+            love.graphics.setColor(1, 1, 0.3) 
             powerText = powerText .. " (TIE)"
         else
             love.graphics.setColor(0.9, 0.9, 0.9)
@@ -763,9 +760,7 @@ function drawCard(card, x, y, showPowers)
     -- Card info
     love.graphics.setColor(0, 0, 0)
     love.graphics.setFont(love.graphics.newFont(8))
-    -- Card name
     love.graphics.printf(card.name or "Unknown", drawX + 2, drawY + cardHeight - 28, cardWidth - 4, "center")
-    -- Mana cost and power
     love.graphics.printf("M:" .. (card.manaCost or 0) .. " P:" .. (card.power or 0), drawX + 2, drawY + cardHeight - 15, cardWidth - 4, "center")
     
     if not isHovered then
@@ -818,7 +813,7 @@ end
 function drawGameInfo()
     love.graphics.setColor(1, 1, 0.8)
     love.graphics.setFont(love.graphics.newFont(18))
-    love.graphics.printf("Fantasy Card Game with Powers - Turn " .. currentTurn, 0, 5, screenWidth, "center")
+    love.graphics.printf("GalaDeer - Turn " .. currentTurn, 0, 5, screenWidth, "center")
     
     -- Game phase and status
     local statusText = gamePhase
@@ -1099,7 +1094,7 @@ function submitPlayerCards()
         return
     end
     
-    print("BEFORE submission - Player1 Mana: " .. player1Mana .. ", Total Cost: " .. totalCost)
+    print("Player1 Mana: " .. player1Mana .. ", Total Cost: " .. totalCost)
     
     local gameStateData = {
         locations = locations,
@@ -1121,7 +1116,7 @@ function submitPlayerCards()
             return
         end
         
-        -- Create card for play
+
         local cardToPlay = {
             id = originalCard.id,
             name = originalCard.name,
@@ -1164,11 +1159,11 @@ function submitPlayerCards()
     
     -- Deduct mana
     player1Mana = player1Mana - totalCost
-    print("AFTER submission - Player1 Mana: " .. player1Mana .. " (deducted " .. totalCost .. ")")
+    print("Player1 Mana: " .. player1Mana .. " (deducted " .. totalCost .. ")")
     
     stagedCards = {}
     currentPlayer = 2
-    print("Cards submitted! AI's turn...")
+    print("Turn complete! AI's turn...")
 end
 
 function aiStageCards()
@@ -1265,7 +1260,7 @@ function startRevealPhase()
     -- Who reveals first 
     revealPhase.playerFirst = love.math.random(1, 2)
     
-    print("Starting reveal phase with card powers...")
+    print("Reavling Phase...")
 end
 
 function drawGameOverScreen()
