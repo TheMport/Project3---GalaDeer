@@ -1,4 +1,5 @@
 
+
 -- Import modules
 local GrabberClass = require("grabber")
 local cardData = require("cardData")
@@ -6,6 +7,9 @@ local gameRules = require("gameRules")
 local discardPile = require("discardPile")
 local cardPowers = require("cardPowers")
 
+local currentScreen = 'titleScreen'
+local titleScreen = {}
+local creditScreen = {}
 
 local gameState = "loading" -- all game states
 local player1Deck = {}
@@ -92,16 +96,22 @@ function love.load()
         minwidth = 1200,
         minheight = 700
     })
-    love.window.setTitle("GalaDeer")
+    love.window.setTitle("GALADEER")
 
     screenWidth = love.graphics.getWidth()
     screenHeight = love.graphics.getHeight()
     
-    -- Update layout based on new screen size
     handY = screenHeight - 140
     
     grabber = GrabberClass:new()
-    
+
+    local sounds = {}
+    sounds.gameStart = love.audio.newSource("/audio/gameboyStartSound.mp3", "static")
+    sounds.gamePlaySound = love.audio.newSource("/audio/inGameMusic.mp3", "stream")
+    sounds.gameStart:play()
+
+    initializeTitleScreen()
+
     -- RNG
     love.math.setRandomSeed(os.time())
     
@@ -113,17 +123,77 @@ function love.load()
     gameState = "playing"
 end
 
--- window resize
+
 function love.resize(w, h)
     screenWidth = w
     screenHeight = h
     handY = screenHeight - 140
-    print("Window resized to: " .. w .. "x" .. h)
+
+end
+
+function initializeTitleScreen()
+
+   titleScreen.draw = function ()
+        love.graphics.setBackgroundColor(0.08, 0.15, 0.08) 
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.setFont(love.graphics.newFont(36))
+        love.graphics.printf("GALADEER", 0, screenHeight / 2 - 50, screenWidth, "center")
+        love.graphics.setFont(love.graphics.newFont(24))
+        love.graphics.printf("Press Enter to begin", 0, screenHeight / 2 + 10, screenWidth, "center")
+        love.graphics.printf("Press C for Credits", 0, screenHeight / 2 + 50, screenWidth, "center")
+
+        gameState = "loading"
+    end
+
+    titleScreen.update = function(dt)
+
+    end
+
+    titleScreen.keypressed = function (key)
+        if key == "return" or key == "enter" then
+
+            currentScreen = "game"
+            initializeGame()
+            local sounds = {}
+            sounds.gamePlaySound = love.audio.newSource("/audio/inGameMusic.mp3", "stream")
+            sounds.gamePlaySound:play()
+
+            gameState = "playing"
+
+        -- credit screen redirect
+        elseif key == "c" then
+            currentScreen = "creditScreen"
+            initializeCreditScene()
+            
+        -- back to title screen since esc is used to quit
+        elseif key == "b" then 
+            currentScreen = "titleScreen"
+            initializeTitleScreen()
+
+        elseif key == "escape" then
+            love.event.quit()
+        end
+    end
+
+end
+
+function initializeCreditScene()
+   
+    creditScreen.draw = function ()
+        love.graphics.setBackgroundColor(0.08, 0.15, 0.08) 
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.setFont(love.graphics.newFont(24))
+        love.graphics.printf("Credits", 0, screenHeight / 2 - 50, screenWidth, "center")
+        love.graphics.printf("Game by Miguel Comonfort", 0, screenHeight / 2 + 10, screenWidth, "center")
+        love.graphics.printf("Card Graphics - Quaternius", 0, screenHeight / 2 + 40, screenWidth, "center")
+        love.graphics.printf("Intro Music - Gameboy - Game Music - Denz1000", 0, screenHeight / 2 + 70, screenWidth, "center")
+        love.graphics.printf("Press B to return", 0, screenHeight / 2 + 100, screenWidth, "center")
+    end
+
 end
 
 function initializeGame()
-    print("Initializing location-based card game with powers...")
-    
+
     player1Mana = 6
     player2Mana = 6
     player1ManaBonus = 0
@@ -185,6 +255,16 @@ function initializeGame()
 end
 
 function love.update(dt)
+    
+    if currentScreen == 'titleScreen' then
+        titleScreen.update(dt)
+        return
+    elseif currentScreen == "game" then
+        if gameState == "playing" then
+            grabber:update(dt)
+        end
+    end
+
     if gameState == "playing" then
         grabber:update(dt)
         
@@ -287,7 +367,7 @@ function handleRevealPhase(dt)
     end
 end
 
--- Trigger powers for cards at location
+
 function triggerRevealPowers(location, locationIndex)
     local gameStateData = {
         locations = locations,
@@ -448,6 +528,17 @@ function startNextTurn()
 end
 
 function love.draw()
+
+    if currentScreen == 'titleScreen' then
+        titleScreen.draw()
+
+    elseif currentScreen == 'creditScreen' then
+
+        if creditScreen.draw then
+            creditScreen.draw()
+        end
+    elseif currentScreen == 'game' then
+
     love.graphics.setBackgroundColor(0.08, 0.15, 0.08) 
     love.graphics.setColor(1, 1, 1)
     
@@ -457,6 +548,7 @@ function love.draw()
         drawGameScreen()
     elseif gameState == "gameOver" then
         drawGameOverScreen()
+        end
     end
 end
 
@@ -724,6 +816,7 @@ function drawCard(card, x, y, showPowers)
     end
     
     -- hover effect
+    -- need to add some animation to the hover effect
     if isHovered and not grabber:isHolding() then
         love.graphics.setColor(1, 1, 0.8) -- yellow tint on hover
         if hoverTimer >= hoverDelay then
@@ -1028,60 +1121,40 @@ end
 
 
   -- Will most likely be changed to ui buttons later
-function love.keypressed(key)
-    print("Key pressed: " .. key .. " | Game state: " .. gameState)
-    
-    if key == "escape" then
-        love.event.quit()
-    elseif key == "r" then
-        print("RESTARTING GAME...")
-        initializeGame()
-        print("Game restarted successfully! New state: " .. gameState)
-    elseif gameState == "playing" then
-        if key == "return" or key == "enter" then
-            if gamePhase == "staging" and currentPlayer == 1 then
-                submitPlayerCards()
-            end
-        elseif key == "space" then
-            if gamePhase == "staging" and currentPlayer == 1 then
-                -- Skip to AI
-                currentPlayer = 2
-            end
-        elseif key == "d" then
-            -- Debug: Print discard pile info for both
-            print("\n=== DEBUG: Discard Pile Information ===")
-            discardPile.printDiscardPileInfo(1)
-            discardPile.printDiscardPileInfo(2)
-            
-            print("\n=== DEBUG: Current Location Status ===")
-            for i, location in ipairs(locations) do
-                print("Location " .. i .. " (" .. location.name .. "):")
-                print("  P1 Cards: " .. #location.player1Cards .. ", Power: " .. location.player1Power)
-                print("  P2 Cards: " .. #location.player2Cards .. ", Power: " .. location.player2Power)
-                if #location.player1Cards > 0 then
-                    print("  P1 Card Details:")
-                    for j, card in ipairs(location.player1Cards) do
-                        local powerDef = cardPowers.getPowerDefinition(card.id)
-                        local abilityText = powerDef and powerDef.description or "No ability"
-                        print("    " .. j .. ": " .. (card.name or "Unknown") .. " (Power: " .. (card.power or 0) .. ", ID: " .. (card.id or "None") .. ", Ability: " .. abilityText .. ")")
-                    end
+function love.keypressed(key)    
+    if currentScreen == 'titleScreen' then
+        titleScreen.keypressed(key)
+
+    elseif currentScreen == 'creditScreen' then
+        if key == "b" then
+            currentScreen = "titleScreen"
+        elseif key == "escape" then
+            love.event.quit()
+        end
+
+    elseif currentScreen == 'game' then
+        
+        if key == "escape" then
+            love.event.quit()
+        elseif key == "r" then
+            print("RESTARTING GAME...")
+            initializeGame()
+            print("Game restarted successfully! New state: " .. gameState)
+        elseif gameState == "playing" then
+            if key == "return" or key == "enter" then
+                if gamePhase == "staging" and currentPlayer == 1 then
+                    submitPlayerCards()
                 end
-                if #location.player2Cards > 0 then
-                    print("  P2 Card Details:")
-                    for j, card in ipairs(location.player2Cards) do
-                        local powerDef = cardPowers.getPowerDefinition(card.id)
-                        local abilityText = powerDef and powerDef.description or "No ability"
-                        print("    " .. j .. ": " .. (card.name or "Unknown") .. " (Power: " .. (card.power or 0) .. ", ID: " .. (card.id or "None") .. ", Ability: " .. abilityText .. ")")
-                    end
+            elseif key == "space" then
+                if gamePhase == "staging" and currentPlayer == 1 then
+                    -- Skip to AI
+                    currentPlayer = 2
                 end
+            elseif key == "d" then
+                print("\n=== DEBUG: Discard Pile Information ===")
+                discardPile.printDiscardPileInfo(1)
+                discardPile.printDiscardPileInfo(2)
             end
-            
-            print("\n=== DEBUG: Card Powers System ===")
-            print("Player 1 next turn mana bonus: " .. player1ManaBonus)
-            print("Player 2 next turn mana bonus: " .. player2ManaBonus)
-            print("Current game state: " .. gameState)
-            print("Current game phase: " .. gamePhase)
-            print("Current player: " .. currentPlayer)
         end
     end
 end
