@@ -4,7 +4,7 @@
 --------------------------------------------------
 
 --  CMPM 121
---  GalaDeer - Project 3
+--  GalaDeer - Project 3 - FINAL Modifcations
 --  Miguel Comonfort
 
 --------------------------------------------------
@@ -29,6 +29,14 @@
 --  Win, Lose, or Draw 
 --  Changes will come for final project to improve game flow and landscape
 
+--  NEW
+
+--  Added start up music
+--  Added Music to main game scene
+--  Added Screen shake animation depending on location win
+--  Added Title Screen
+--  Added Credits Scene
+--  
 
 --  main.lua
 
