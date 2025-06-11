@@ -241,7 +241,6 @@ cardPowers.definitions = {
         end
     },
 
-    --  Added new card powers 
     [16] = { -- Bell Tower
         name = "Bell Tower",
         type = "on_reveal",
@@ -285,7 +284,7 @@ cardPowers.definitions = {
             local currentLocation = gameState.locations[locationIndex]
             local playerCards = playerId == 1 and currentLocation.player1Cards or currentLocation.player2Cards
             
-            -- Find available locations that aren't full
+            -- Find available locations that arent full
             local availableLocations = {}
             for i, location in ipairs(gameState.locations) do
                 if i ~= locationIndex then
@@ -562,7 +561,7 @@ cardPowers.definitions = {
                         end
                     end
                     
-                    -- If there are unique powers, buff all cards
+                    -- If there are unique powers buff all cards
                     local uniqueCount = 0
                     for _ in pairs(uniquePowers) do
                         uniqueCount = uniqueCount + 1
@@ -709,7 +708,7 @@ function cardPowers.handleStinkTrapEffect(gameState, locationIndex, newCard)
                 if playerCard == newCard then newCardLocation = 2 end
             end
             
-            -- If they're on the same team, trigger Water Element
+            -- If theyre on the same team trigger Water Element
             if cardLocation == newCardLocation then
                 cardPowers.triggerPower(23, "ongoing", gameState, cardLocation, locationIndex, card, newCard)
             end
