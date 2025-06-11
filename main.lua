@@ -82,12 +82,17 @@ local hoveredCard = nil
 local hoverTimer = 0
 local hoverDelay = 0.5
 
+
 --  layout positions
 local locationY = 160
 local locationHeight = 320
 local locationWidth = 380
 local handY = 580
 local enemyHandY = 30
+
+-- Card shakes
+local shakeTimer = 0
+local shakeIntensity = 0
 
 function love.load()
 
@@ -256,6 +261,9 @@ end
 
 function love.update(dt)
     
+    if shakeTimer > 0 then
+        shakeTimer = shakeTimer - dt
+    end
     if currentScreen == 'titleScreen' then
         titleScreen.update(dt)
         return
@@ -427,6 +435,8 @@ function calculateAndAwardLocationPoints(location)
         print("✓ Player 1 WINS " .. location.name .. "!")
         print("✓ Points awarded to Player 1: " .. pointsAwarded)
         print("✓ Player 1 total points: " .. player1Points)
+        shakeTimer = 0.5
+        shakeIntensity = 5 -- shake for win
         
     elseif location.player2Power > location.player1Power then
         local pointsAwarded = location.player2Power - location.player1Power
@@ -436,6 +446,8 @@ function calculateAndAwardLocationPoints(location)
         print("✓ Player 2 (AI) WINS " .. location.name .. "!")
         print("✓ Points awarded to Player 2: " .. pointsAwarded)
         print("✓ Player 2 total points: " .. player2Points)
+        shakeTimer = 0.5
+        shakeIntensity = 5 
         
     else
         location.winner = "tie"
@@ -529,6 +541,7 @@ end
 
 function love.draw()
 
+
     if currentScreen == 'titleScreen' then
         titleScreen.draw()
 
@@ -541,14 +554,25 @@ function love.draw()
 
     love.graphics.setBackgroundColor(0.08, 0.15, 0.08) 
     love.graphics.setColor(1, 1, 1)
-    
+
+        local shakeX, shakeY = 0, 0
+    if shakeTimer > 0 then
+        shakeX = (love.math.random() - 0.5) * shakeIntensity
+        shakeY = (love.math.random() - 0.5) * shakeIntensity
+    end
+    love.graphics.push()
+    love.graphics.translate(shakeX, shakeY)
+
     if gameState == "loading" then
         drawLoadingScreen()
     elseif gameState == "playing" then
         drawGameScreen()
     elseif gameState == "gameOver" then
         drawGameOverScreen()
-        end
+    end
+
+love.graphics.pop()
+
     end
 end
 
@@ -1120,7 +1144,7 @@ function checkLocationDrop(x, y)
 end
 
 
-  -- Will most likely be changed to ui buttons later
+  -- Will most likely be changed to ui buttons later -- will need to add button 
 function love.keypressed(key)    
     if currentScreen == 'titleScreen' then
         titleScreen.keypressed(key)
