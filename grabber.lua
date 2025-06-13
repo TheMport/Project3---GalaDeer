@@ -112,9 +112,6 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
     local placed = false
     local cardPowers = require("cardPowers")
 
-    print("DEBUG: Releasing card " .. (card.name or "Unknown") .. " at position (" .. x .. ", " .. y .. ")")
-    print("DEBUG: Card before release - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
-
     if locationDropped then
         if currentPlayer == 1 then
             if self.sourceType == "hand" then
@@ -147,9 +144,7 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
                             locationIndex = locationDropped
                         })
                         placed = true
-                        print("DEBUG: Staged clean card - dragX=" .. tostring(stagedCard.dragX) .. ", dragY=" .. tostring(stagedCard.dragY) .. ", isDragging=" .. tostring(stagedCard.isDragging))
-                        print("Staged " .. card.name .. " for " .. location.name .. " (Power: " .. stagedCard.power .. ", Total cost after staging: " .. totalCostAfterStaging .. "/" .. currentMana .. ")")
-                        
+
                         -- ability preview
                         if cardPowers.hasSpecialAbility(card.id) then
                             local powerDef = cardPowers.getPowerDefinition(card.id)
@@ -197,8 +192,6 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
             
             table.insert(playerHand, cardToReturn)
             placed = true
-            print("DEBUG: Returned card to hand - dragX=" .. tostring(cardToReturn.dragX) .. ", dragY=" .. tostring(cardToReturn.dragY) .. ", isDragging=" .. tostring(cardToReturn.isDragging))
-            print("Returned " .. card.name .. " to hand (Power: " .. (cardToReturn.power or 0) .. ")")
         elseif self.sourceType == "hand" then
             placed = true
             print("Card " .. card.name .. " returned to original hand position")
@@ -214,7 +207,6 @@ function GrabberClass:onMouseReleased(x, y, playerHand, stagedCards, cardWidth, 
         card.isDragging = nil
         card.dragX = nil
         card.dragY = nil
-        print("DEBUG: Cleaned held card - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
     end
 
     -- Reset grabber
@@ -246,14 +238,11 @@ function GrabberClass:returnToOriginalPosition(playerHand, stagedCards)
             else
                 table.insert(playerHand, card)
             end
+            
+            card.dragX = nil
+            card.dragY = nil
+            card.isDragging = nil
         end
-        
-        card.dragX = nil
-        card.dragY = nil
-        card.isDragging = nil
-        
-        print("DEBUG: Returned card to hand position - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
-        print("Returned " .. card.name .. " to hand (Power: " .. (card.power or 0) .. ")")
         
     elseif self.sourceType == "staged" then
         -- Ensure card is back in staged cards
@@ -285,8 +274,7 @@ function GrabberClass:returnToOriginalPosition(playerHand, stagedCards)
         card.dragY = nil
         card.isDragging = nil
         
-        print("DEBUG: Returned card to staged position - dragX=" .. tostring(card.dragX) .. ", dragY=" .. tostring(card.dragY) .. ", isDragging=" .. tostring(card.isDragging))
-        print("Returned " .. card.name .. " to staged cards (Power: " .. (card.power or 0) .. ")")
+
     end
 end
 
@@ -328,7 +316,7 @@ function GrabberClass:countCardsForLocation(stagedCards, locationIndex)
     return count
 end
 
--- Enhanced validation with card powers consideration
+-- validation with card powers
 function GrabberClass:validateStagedCards(stagedCards, locations, currentMana)
     local totalCost = self:calculateStagedManaCost(stagedCards)
     
@@ -377,7 +365,6 @@ function GrabberClass:clearStagedCards(stagedCards, playerHand)
         cardToReturn.isDragging = nil
         
         table.insert(playerHand, cardToReturn)
-        print("DEBUG: Cleared staged card - dragX=" .. tostring(cardToReturn.dragX) .. ", dragY=" .. tostring(cardToReturn.dragY) .. ", isDragging=" .. tostring(cardToReturn.isDragging))
     end
     
     for i = #stagedCards, 1, -1 do

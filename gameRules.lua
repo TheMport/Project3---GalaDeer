@@ -4,7 +4,7 @@ local gameRules = {}
 gameRules.DECK_SIZE = 20
 gameRules.MAX_COPIES_PER_CARD = 2
 gameRules.STARTING_HAND_SIZE = 2
-gameRules.MAX_HAND_SIZE = 6
+gameRules.MAX_HAND_SIZE = 7
 gameRules.CARDS_DRAWN_PER_TURN = 1
 gameRules.MAX_CARDS_PER_LOCATION = 4
 gameRules.WINNING_POINTS = 20 -- Points needed to win the game
@@ -38,7 +38,6 @@ function gameRules.createValidDeck(cardData)
             table.insert(deck, selectedCard)
             table.remove(availableCards, randomIndex)
         else
-            print("Warning: Not enough unique cards to fill deck completely")
             break
         end
     end

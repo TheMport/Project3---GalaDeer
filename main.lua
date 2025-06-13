@@ -1,11 +1,11 @@
-
-
 -- Import modules
+local Vector = require("Vector")
 local GrabberClass = require("grabber")
 local cardData = require("cardData")
 local gameRules = require("gameRules")
 local discardPile = require("discardPile")
 local cardPowers = require("cardPowers")
+local json = require("dkjson")
 
 local currentScreen = 'titleScreen'
 local titleScreen = {}
@@ -32,6 +32,10 @@ local screenWidth = 1280
 local screenHeight = 720
 local cardWidth = 80
 local cardHeight = 120
+
+-- UI Buttons (replacing original keybinds)
+local buttons = {}
+local hoveredButton = nil
 
 -- Location system - 3 locations with 4 slots each per player 
 local locations = {
@@ -75,13 +79,11 @@ local revealPhase = {
 local aiTurnTimer = -2
 local aiTurnDelay = 1.5
 local aiIsThinking = false
-local bothPlayersReady = false
 
 -- Card hover
 local hoveredCard = nil
 local hoverTimer = 0
 local hoverDelay = 0.5
-
 
 --  layout positions
 local locationY = 160
@@ -94,8 +96,57 @@ local enemyHandY = 30
 local shakeTimer = 0
 local shakeIntensity = 0
 
-function love.load()
+-- Buttons
+function createButton(x, y, width, height, text, action, enabled)
+    return {
+        x = x,
+        y = y,
+        width = width,
+        height = height,
+        text = text,
+        action = action,
+        enabled = enabled or true,
+        hovered = false
+    }
+end
 
+--mouse is over a button
+function isMouseOverButton(button, mouseX, mouseY)
+    return mouseX >= button.x and mouseX <= button.x + button.width and
+           mouseY >= button.y and mouseY <= button.y + button.height
+end
+
+function initializeButtons()
+    buttons = {}
+    
+    -- bottom right
+    local buttonWidth = 120
+    local buttonHeight = 40
+    local buttonSpacing = 10
+    local rightMargin = 20
+    local bottomMargin = 30
+    
+    -- Submit button
+    local submitX = screenWidth - buttonWidth - rightMargin
+    local submitY = screenHeight - buttonHeight - bottomMargin
+    buttons.submit = createButton(submitX, submitY, buttonWidth, buttonHeight, "SUBMIT", function()
+        if gamePhase == "staging" and currentPlayer == 1 then
+            submitPlayerCards()
+        end
+    end)
+    
+    -- Skip button (above submit button)
+    local skipX = screenWidth - buttonWidth - rightMargin
+    local skipY = submitY - buttonHeight - buttonSpacing
+    buttons.skip = createButton(skipX, skipY, buttonWidth, buttonHeight, "SKIP TURN", function()
+        if gamePhase == "staging" and currentPlayer == 1 then
+            -- Skip to AI
+            currentPlayer = 2
+        end
+    end)
+end
+
+function love.load()
     love.window.setMode(1400, 800, {
         resizable = true,
         minwidth = 1200,
@@ -114,14 +165,29 @@ function love.load()
     sounds.gameStart = love.audio.newSource("/audio/gameboyStartSound.mp3", "static")
     sounds.gamePlaySound = love.audio.newSource("/audio/inGameMusic.mp3", "stream")
     sounds.gameStart:play()
+    sounds.gamePlaySound:setVolume(0.1)
 
     initializeTitleScreen()
 
     -- RNG
     love.math.setRandomSeed(os.time())
     
-    -- pre load
+    -- preload
     gameState = "loading"
+    
+    --  incorporated .json handling 
+    -- validate card data 
+    local isValid, errors, warnings = cardData.validateCardData()
+    if not isValid then
+        print("ERROR: Card data validation failed!")
+        for _, error in ipairs(errors) do
+            print("  " .. error)
+        end
+    else
+        print("Card data validation successful!")
+    end
+    
+    -- Load card images
     cardData.loadImages()
     
     initializeGame()
@@ -133,11 +199,13 @@ function love.resize(w, h)
     screenWidth = w
     screenHeight = h
     handY = screenHeight - 140
-
+    
+    if buttons then
+        initializeButtons()
+    end
 end
 
 function initializeTitleScreen()
-
    titleScreen.draw = function ()
         love.graphics.setBackgroundColor(0.08, 0.15, 0.08) 
         love.graphics.setColor(1, 1, 1)
@@ -162,6 +230,7 @@ function initializeTitleScreen()
             local sounds = {}
             sounds.gamePlaySound = love.audio.newSource("/audio/inGameMusic.mp3", "stream")
             sounds.gamePlaySound:play()
+            sounds.gamePlaySound:setVolume(0.1)
 
             gameState = "playing"
 
@@ -179,11 +248,9 @@ function initializeTitleScreen()
             love.event.quit()
         end
     end
-
 end
 
 function initializeCreditScene()
-   
     creditScreen.draw = function ()
         love.graphics.setBackgroundColor(0.08, 0.15, 0.08) 
         love.graphics.setColor(1, 1, 1)
@@ -194,11 +261,9 @@ function initializeCreditScene()
         love.graphics.printf("Intro Music - Gameboy - Game Music - Denz1000", 0, screenHeight / 2 + 70, screenWidth, "center")
         love.graphics.printf("Press B to return", 0, screenHeight / 2 + 100, screenWidth, "center")
     end
-
 end
 
 function initializeGame()
-
     player1Mana = 6
     player2Mana = 6
     player1ManaBonus = 0
@@ -207,7 +272,6 @@ function initializeGame()
     currentPlayer = 1
     aiIsThinking = false
     aiTurnTimer = -2
-    bothPlayersReady = false
     gamePhase = "staging"
     
     -- Clear all cards and points
@@ -218,9 +282,13 @@ function initializeGame()
     -- Reset hover system
     hoveredCard = nil
     hoverTimer = 0
+    hoveredButton = nil
     
     -- Initialize discard pile 
     discardPile.initialize()
+    
+    -- Initialize buttons
+    initializeButtons()
     
     -- Reset locations 
     for i, location in ipairs(locations) do
@@ -260,7 +328,6 @@ function initializeGame()
 end
 
 function love.update(dt)
-    
     if shakeTimer > 0 then
         shakeTimer = shakeTimer - dt
     end
@@ -270,6 +337,7 @@ function love.update(dt)
     elseif currentScreen == "game" then
         if gameState == "playing" then
             grabber:update(dt)
+            updateButtonHover()
         end
     end
 
@@ -304,6 +372,18 @@ function love.update(dt)
             end
         elseif gamePhase == "reveal" then
             handleRevealPhase(dt)
+        end
+    end
+end
+
+function updateButtonHover()
+    local mouseX, mouseY = love.mouse.getPosition()
+    hoveredButton = nil
+    
+    for _, button in pairs(buttons) do
+        button.hovered = isMouseOverButton(button, mouseX, mouseY)
+        if button.hovered then
+            hoveredButton = button
         end
     end
 end
@@ -375,7 +455,6 @@ function handleRevealPhase(dt)
     end
 end
 
-
 function triggerRevealPowers(location, locationIndex)
     local gameStateData = {
         locations = locations,
@@ -416,16 +495,6 @@ function calculateAndAwardLocationPoints(location)
     print("=== SCORING " .. location.name .. " ===")
     print("Player 1 Power: " .. location.player1Power .. " (from " .. #location.player1Cards .. " cards)")
     print("Player 2 Power: " .. location.player2Power .. " (from " .. #location.player2Cards .. " cards)")
-    
-    -- List all cards at this location for debugging
-    print("P1 Cards at " .. location.name .. ":")
-    for i, card in ipairs(location.player1Cards) do
-        print("  " .. i .. ": " .. (card.name or "Unknown") .. " (Power: " .. (card.power or 0) .. ")")
-    end
-    print("P2 Cards at " .. location.name .. ":")
-    for i, card in ipairs(location.player2Cards) do
-        print("  " .. i .. ": " .. (card.name or "Unknown") .. " (Power: " .. (card.power or 0) .. ")")
-    end
     
     if location.player1Power > location.player2Power then
         local pointsAwarded = location.player1Power - location.player2Power
@@ -508,9 +577,8 @@ end
 function startNextTurn()
     currentTurn = currentTurn + 1
     currentPlayer = 1
-    bothPlayersReady = false
-    
-    -- Increase mana by 2 each turn, capped at 10, plus any bonuses
+
+    -- Increase mana by 2 each turn capped at 10 plus any bonuses
     player1Mana = math.min(player1Mana + 2 + player1ManaBonus, maxMana)
     player2Mana = math.min(player2Mana + 2 + player2ManaBonus, maxMana)
     
@@ -540,39 +608,34 @@ function startNextTurn()
 end
 
 function love.draw()
-
-
     if currentScreen == 'titleScreen' then
         titleScreen.draw()
 
     elseif currentScreen == 'creditScreen' then
-
         if creditScreen.draw then
             creditScreen.draw()
         end
     elseif currentScreen == 'game' then
-
-    love.graphics.setBackgroundColor(0.08, 0.15, 0.08) 
-    love.graphics.setColor(1, 1, 1)
+        love.graphics.setBackgroundColor(0.08, 0.15, 0.08) 
+        love.graphics.setColor(1, 1, 1)
 
         local shakeX, shakeY = 0, 0
-    if shakeTimer > 0 then
-        shakeX = (love.math.random() - 0.5) * shakeIntensity
-        shakeY = (love.math.random() - 0.5) * shakeIntensity
-    end
-    love.graphics.push()
-    love.graphics.translate(shakeX, shakeY)
+        if shakeTimer > 0 then
+            shakeX = (love.math.random() - 0.5) * shakeIntensity
+            shakeY = (love.math.random() - 0.5) * shakeIntensity
+        end
+        love.graphics.push()
+        love.graphics.translate(shakeX, shakeY)
 
-    if gameState == "loading" then
-        drawLoadingScreen()
-    elseif gameState == "playing" then
-        drawGameScreen()
-    elseif gameState == "gameOver" then
-        drawGameOverScreen()
-    end
+        if gameState == "loading" then
+            drawLoadingScreen()
+        elseif gameState == "playing" then
+            drawGameScreen()
+        elseif gameState == "gameOver" then
+            drawGameOverScreen()
+        end
 
-love.graphics.pop()
-
+        love.graphics.pop()
     end
 end
 
@@ -590,6 +653,7 @@ function drawGameScreen()
     drawGameInfo()
     drawManaDisplay()
     drawCardTooltip()
+    drawButtons()
     
     -- drop zone hints
     if grabber:isHolding() then
@@ -598,12 +662,17 @@ function drawGameScreen()
 end
 
 function drawLocations()
-    local totalWidth = screenWidth - 100
-    local locationSpacing = totalWidth / 3
+    local reducedSpacing = 32
+    local locationsBlockWidth = locationWidth * 3 + reducedSpacing * 2
+    local startX = (screenWidth - locationsBlockWidth) / 2
+
+    local locationsBlockHeight = locationHeight
+    local startY = (screenHeight - locationsBlockHeight) / 2 - 0
+    if startY < 60 then startY = 60 end
 
     for i, location in ipairs(locations) do
-        local x = 50 + (i - 1) * locationSpacing
-        local y = locationY
+        local x = startX + (i - 1) * (locationWidth + reducedSpacing)
+        local y = startY
 
         -- location background
         love.graphics.setColor(0.25, 0.35, 0.25, 0.9)
@@ -663,8 +732,6 @@ function drawLocations()
     end
 end
 
-
-
 function drawLocationCards(cards, startX, startY, isEnemy, locationIndex)
     local cardSpacing = 88
     local maxSlots = 4
@@ -678,8 +745,6 @@ function drawLocationCards(cards, startX, startY, isEnemy, locationIndex)
         love.graphics.rectangle("fill", x, y, cardWidth, cardHeight)
         love.graphics.setColor(0.6, 0.6, 0.6)
         love.graphics.rectangle("line", x, y, cardWidth, cardHeight)
-
-
 
         local card = cards[slot]
         if card then
@@ -713,28 +778,30 @@ end
 function drawDropZoneHints()
     local heldCard = grabber:getHeldCard()
     if not heldCard then return end
-    
-    local totalWidth = screenWidth - 100
-    local locationSpacing = totalWidth / 3
-    
-    -- Highlight valid drop zones
+
+    local reducedSpacing = 32
+    local locationsBlockWidth = locationWidth * 3 + reducedSpacing * 2
+    local startX = (screenWidth - locationsBlockWidth) / 2
+    local locationsBlockHeight = locationHeight
+    local startY = (screenHeight - locationsBlockHeight) / 2 - 0
+    if startY < 60 then startY = 60 end
+
     for i, location in ipairs(locations) do
         if #location.player1Cards < 4 then -- Can only place if not full
-            local x = 50 + (i - 1) * locationSpacing
-            local y = locationY + 200
-            
+            local x = startX + (i - 1) * (locationWidth + reducedSpacing)
+            local y = startY + 200 
+
             love.graphics.setColor(0, 1, 0, 0.4)
             love.graphics.rectangle("fill", x + 8, y, locationWidth - 16, 115)
             love.graphics.setColor(0, 1, 0, 0.9)
             love.graphics.rectangle("line", x + 8, y, locationWidth - 16, 115)
-            
+
             love.graphics.setFont(love.graphics.newFont(16))
             love.graphics.setColor(1, 1, 1)
             love.graphics.printf("DROP HERE", x, y + 50, locationWidth, "center")
         end
     end
-    
-    -- Hand return zone
+
     love.graphics.setColor(0, 0, 1, 0.3)
     love.graphics.rectangle("fill", 50, handY - 20, screenWidth - 100, 140)
     love.graphics.setColor(0, 0, 1)
@@ -767,12 +834,14 @@ function drawEnemyHand()
     love.graphics.setColor(1, 1, 1)
     local handSpacing = math.min(95, (screenWidth - 200) / math.max(#player2Hand, 1))
     local startX = (screenWidth - (handSpacing * (#player2Hand - 1) + cardWidth)) / 2
-    
+    local yOffset = 50 -- avoids overlapping
+
+    local cardBackImage = cardData.getCardBackImage()
+
     for i, card in ipairs(player2Hand) do
         local x = startX + (i - 1) * handSpacing
-        local y = enemyHandY
-        
-        local cardBackImage = cardData.getCardBackImage()
+        local y = enemyHandY + yOffset
+
         if cardBackImage then
             love.graphics.setColor(1, 1, 1)
             local scale = math.min(cardWidth / cardBackImage:getWidth(), cardHeight / cardBackImage:getHeight())
@@ -800,7 +869,9 @@ function drawStagedCards()
         totalStagedCost = totalStagedCost + (stagedCard.card.manaCost or 0)
     end
     
-    love.graphics.printf("Staged: " .. #stagedCards .. " cards (Cost: " .. totalStagedCost .. ")", 50, 520, 400, "left")
+    -- creates too much clutter
+    -- user sees total when going to place the card in location
+    --  love.graphics.printf("Staged: " .. #stagedCards .. " cards (Cost: " .. totalStagedCost .. ")", 50, 520, 400, "left")
     
     local spacing = 90
     local startX = 50
@@ -821,7 +892,7 @@ function drawStagedCards()
         love.graphics.setColor(1, 1, 0)
         love.graphics.setFont(love.graphics.newFont(10))
         local locationName = locations[stagedCard.locationIndex].name
-        love.graphics.printf("→ " .. locationName, x, y - 15, cardWidth, "center")
+        love.graphics.printf("→ " .. locationName, x, y + 150, cardWidth, "center")
     end
 end
 
@@ -865,7 +936,7 @@ function drawCard(card, x, y, showPowers)
         love.graphics.printf("!", drawX + cardWidth - 11, drawY + 3, 8, "center")
     end
     
-    -- ffetch card image
+    -- fetch card image
     local cardImage = cardData.getCardImage(card.id)
     if cardImage then
         love.graphics.setColor(1, 1, 1)
@@ -958,22 +1029,62 @@ function drawGameInfo()
     -- Instructions (bottom of screen)
     love.graphics.setFont(love.graphics.newFont(11))
     love.graphics.setColor(0.9, 0.9, 0.9)
-    love.graphics.printf("First player to 20 points wins! Passively gain 2 mana per round. Drag cards to locations. Hover for abilities. ENTER: Play Turn | SPACE: End & Skip Turn | R: Restart | D: Debug", 0, screenHeight - 20, screenWidth, "center")
+    love.graphics.printf("First player to 20 points wins! Passively gain 2 mana per round. Drag cards to locations. Hover for abilities. Use buttons to submit or skip turns. | R: Restart | ESC: To Quit", 0, screenHeight - 20, screenWidth, "center")
+end
+
+-- UI buttons
+function drawButtons()
+    for _, button in pairs(buttons) do
+
+        local bgColor, borderColor, textColor
+        
+        if not button.enabled then
+            -- disabled state
+            bgColor = {0.3, 0.3, 0.3, 0.5}
+            borderColor = {0.5, 0.5, 0.5}
+            textColor = {0.6, 0.6, 0.6}
+        elseif button.hovered then
+            -- hovered state
+            bgColor = {0.2, 0.6, 0.2, 0.9}
+            borderColor = {0.4, 1, 0.4}
+            textColor = {1, 1, 1}
+        else
+            -- normal state
+            bgColor = {0.15, 0.4, 0.15, 0.8}
+            borderColor = {0.3, 0.7, 0.3}
+            textColor = {0.9, 0.9, 0.9}
+        end
+        
+        -- button background
+        love.graphics.setColor(bgColor)
+        love.graphics.rectangle("fill", button.x, button.y, button.width, button.height)
+        
+        -- button border
+        love.graphics.setColor(borderColor)
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", button.x, button.y, button.width, button.height)
+        love.graphics.setLineWidth(1)
+        
+        -- button text
+        love.graphics.setColor(textColor)
+        love.graphics.setFont(love.graphics.newFont(14))
+        love.graphics.printf(button.text, button.x, button.y + (button.height / 2) - 7, button.width, "center")
+    end
 end
 
 function drawManaDisplay()
-    --available mana
+    -- Calculate available mana
     local stagedCost = 0
     for _, stagedCard in ipairs(stagedCards) do
         stagedCost = stagedCost + (stagedCard.card.manaCost or 0)
     end
     local availableMana = player1Mana - stagedCost
     
-    -- Player Mana UI (bottom right)
+    -- Player Mana UI (top left now (mirrors ai hud))
     local playerUIWidth = 240
     local playerUIHeight = 130
-    local playerUIX = screenWidth - playerUIWidth - 20
-    local playerUIY = screenHeight - playerUIHeight - 20
+    local playerUIX = 20 
+    local playerUIY = 50 
     
     -- Player mana background
     love.graphics.setColor(0.15, 0.35, 0.65, 0.95)
@@ -1015,7 +1126,7 @@ function drawManaDisplay()
         love.graphics.printf("Next turn: +" .. player1ManaBonus .. " mana", playerUIX + 10, playerUIY + 110, playerUIWidth - 20, "center")
     end
     
-    -- AI UI (top right)
+    -- AI UI
     local aiUIX = screenWidth - playerUIWidth - 20
     local aiUIY = 50
     
@@ -1053,11 +1164,11 @@ function drawManaDisplay()
         love.graphics.printf("Next turn: +" .. player2ManaBonus .. " mana", aiUIX + 10, aiUIY + 110, playerUIWidth - 20, "center")
     end
     
-    -- Turn indicator (center right)
+    -- Turn indicator 
     local turnUIWidth = 200
-    local turnUIHeight = 50
-    local turnUIX = screenWidth - turnUIWidth - 20
-    local turnUIY = aiUIY + playerUIHeight + 15
+    local turnUIHeight = 50   
+    local turnUIX = (screenWidth - turnUIWidth) / 2
+    local turnUIY = 580   -- Above players hand
     
     love.graphics.setColor(0.2, 0.2, 0.2, 0.9)
     love.graphics.rectangle("fill", turnUIX, turnUIY, turnUIWidth, turnUIHeight)
@@ -1077,7 +1188,7 @@ function drawManaDisplay()
             
             local costUIWidth = 220
             local costUIHeight = 90
-            local costUIX = screenWidth - costUIWidth - 20
+            local costUIX = (screenWidth - costUIWidth) / 2 
             local costUIY = screenHeight / 2 - costUIHeight / 2
             
             love.graphics.setColor(0.2, 0.2, 0.2, 0.98)
@@ -1106,8 +1217,17 @@ function drawManaDisplay()
     end
 end
 
+--  button clicking and card grabbing detection
 function love.mousepressed(x, y, button)
     if button == 1 and gameState == "playing" and gamePhase == "staging" and currentPlayer == 1 then
+        for _, btn in pairs(buttons) do
+            if isMouseOverButton(btn, x, y) and btn.enabled then
+                btn.action()
+                return
+            end
+        end
+        
+        -- if no button was clicked allow card grabbing
         grabber:onMousePressed(x, y, player1Hand, stagedCards, cardWidth, cardHeight, handY)
         hoveredCard = nil
         hoverTimer = 0
@@ -1126,16 +1246,24 @@ function love.mousereleased(x, y, button)
 end
 
 function checkLocationDrop(x, y)
-    local totalWidth = screenWidth - 100
-    local locationSpacing = totalWidth / 3
-    local playerAreaY = locationY + 200
-    local playerAreaHeight = 115
+    local reducedSpacing = 32
+    local locationsBlockWidth = locationWidth * 3 + reducedSpacing * 2
+    local startX = (screenWidth - locationsBlockWidth) / 2
     
+    local locationsBlockHeight = locationHeight
+    local startY = (screenHeight - locationsBlockHeight) / 2 - 0
+    if startY < 60 then startY = 60 end
+    
+    local playerAreaY = startY + 200
+    local playerAreaHeight = 115 
+    
+    -- Check drop coordinates
     for i, location in ipairs(locations) do
-        local locationX = 50 + (i - 1) * locationSpacing
+        local locationX = startX + (i - 1) * (locationWidth + reducedSpacing)
         
         if x >= locationX + 8 and x <= locationX + locationWidth - 8 and
            y >= playerAreaY and y <= playerAreaY + playerAreaHeight then
+
             return i
         end
     end
@@ -1143,8 +1271,7 @@ function checkLocationDrop(x, y)
     return nil
 end
 
-
-  -- Will most likely be changed to ui buttons later -- will need to add button 
+-- Will most likely be changed to ui buttons later -- will need to add button 
 function love.keypressed(key)    
     if currentScreen == 'titleScreen' then
         titleScreen.keypressed(key)
@@ -1164,21 +1291,6 @@ function love.keypressed(key)
             print("RESTARTING GAME...")
             initializeGame()
             print("Game restarted successfully! New state: " .. gameState)
-        elseif gameState == "playing" then
-            if key == "return" or key == "enter" then
-                if gamePhase == "staging" and currentPlayer == 1 then
-                    submitPlayerCards()
-                end
-            elseif key == "space" then
-                if gamePhase == "staging" and currentPlayer == 1 then
-                    -- Skip to AI
-                    currentPlayer = 2
-                end
-            elseif key == "d" then
-                print("\n=== DEBUG: Discard Pile Information ===")
-                discardPile.printDiscardPileInfo(1)
-                discardPile.printDiscardPileInfo(2)
-            end
         end
     end
 end
@@ -1366,7 +1478,7 @@ function startRevealPhase()
     -- Who reveals first 
     revealPhase.playerFirst = love.math.random(1, 2)
     
-    print("Reavling Phase...")
+    print("Revealing Phase...")
 end
 
 function drawGameOverScreen()

@@ -226,6 +226,7 @@ cardPowers.definitions = {
         end
     },
     [15] = { -- Cult
+             -- hot fixed 
         name = "Cult",
         type = "on_reveal",
         description = "When Revealed: Both players draw a card",
@@ -233,8 +234,8 @@ cardPowers.definitions = {
             local gameRules = require("gameRules")
             
             -- Draw a card for both players
-            local p1Drawn = gameRules.drawCardsForTurn(gameState.player1Deck, gameState.player1Hand, "Player 1")
-            local p2Drawn = gameRules.drawCardsForTurn(gameState.player2Deck, gameState.player2Hand, "Player 2")
+            gameRules.drawCardsForTurn(gameState.player1Deck, gameState.player1Hand, "Player 1")
+            gameRules.drawCardsForTurn(gameState.player2Deck, gameState.player2Hand, "Player 2")
             
             print("Cult effect: Both players drew a card")
             return true
@@ -276,14 +277,15 @@ cardPowers.definitions = {
             return true
         end
     },
-    [18] = { -- Water Dragon
+    [18] = { -- Water Dragon  
+             -- Hot fixed for final push
         name = "Water Dragon",
         type = "on_reveal",
-        description = "When Revealed: Moves to another location",
+        description = "When Revealed: Moves to another location, gaining +1 power each time it moves",
         effect = function(gameState, playerId, locationIndex, cardRef)
             local currentLocation = gameState.locations[locationIndex]
             local playerCards = playerId == 1 and currentLocation.player1Cards or currentLocation.player2Cards
-            
+
             -- Find available locations that arent full
             local availableLocations = {}
             for i, location in ipairs(gameState.locations) do
@@ -294,7 +296,7 @@ cardPowers.definitions = {
                     end
                 end
             end
-            
+
             if #availableLocations > 0 then
                 -- Remove from current location
                 for i, card in ipairs(playerCards) do
@@ -303,18 +305,24 @@ cardPowers.definitions = {
                         break
                     end
                 end
-                
-                -- Move to random available location
+
+                -- Move to random available locations
                 local targetLocationIndex = availableLocations[love.math.random(1, #availableLocations)]
                 local targetLocation = gameState.locations[targetLocationIndex]
                 local targetCards = playerId == 1 and targetLocation.player1Cards or targetLocation.player2Cards
-                
+
+                -- Add +1 power for leaving the original location
+                cardRef.power = (cardRef.power or 0) + 1
+
                 table.insert(targetCards, cardRef)
-                
-                print("Water Dragon effect: Moved from " .. currentLocation.name .. " to " .. targetLocation.name)
+
+                -- Add +1 power for arriving at the new location
+                cardRef.power = (cardRef.power or 0) + 1
+
+                print("Water Dragon effect: Moved from " .. currentLocation.name .. " to " .. targetLocation.name .. " and gained +2 power (now " .. cardRef.power .. ")")
                 return true
             end
-            
+
             return false
         end
     },
@@ -414,7 +422,7 @@ cardPowers.definitions = {
         name = "Water Element",
         type = "ongoing",
         description = "Gain +1 power when you play another card here",
-        effect = function(gameState, playerId, locationIndex, cardRef, triggerCard)
+        effect = function(cardRef, triggerCard)
             -- This effect is triggered when a new card is played at the same location
             if cardRef and triggerCard and cardRef ~= triggerCard then
                 cardRef.power = (cardRef.power or 0) + 1
@@ -492,91 +500,64 @@ cardPowers.definitions = {
         end
     },
     [27] = { -- Book
+             -- hot fixed
         name = "Book",
         type = "on_reveal",
         description = "When Revealed: If no ally cards are here, lower this card's power by 5",
         effect = function(gameState, playerId, locationIndex, cardRef)
             local location = gameState.locations[locationIndex]
             local playerCards = playerId == 1 and location.player1Cards or location.player2Cards
-            local allyCount = #playerCards - 1 -- Exclude this card itself
-            
+            local allyCount = 0
+            for _, card in ipairs(playerCards) do
+                if card ~= cardRef then
+                    allyCount = allyCount + 1
+                end
+            end
+
             if allyCount == 0 and cardRef then
                 cardRef.power = math.max(0, (cardRef.power or 0) - 5)
                 print("Book effect: Reduced power by 5 for being alone (now " .. cardRef.power .. ")")
                 return true
             end
-            
+
             return false
         end
     },
     [28] = { -- Roll Dice
+             -- changed in order to better operate with GalaDeer
         name = "Roll Dice",
         type = "end_of_turn",
-        description = "End of Turn: Gains +1 power, but is discarded when its power is greater than 7",
+        description = "End of Turn: Set this card's power to a random value between 1 and 7",
         effect = function(gameState, playerId, locationIndex, cardRef)
             if cardRef then
-                cardRef.power = (cardRef.power or 0) + 1
-                print("Roll Dice effect: Gained +1 power (now " .. cardRef.power .. ")")
-                
-                if cardRef.power > 7 then
-                    -- Find and remove this card from the location
-                    local location = gameState.locations[locationIndex]
-                    local playerCards = playerId == 1 and location.player1Cards or location.player2Cards
-                    
-                    for i, card in ipairs(playerCards) do
-                        if card == cardRef then
-                            table.remove(playerCards, i)
-                            print("Roll Dice effect: Discarded for exceeding 7 power")
-                            break
-                        end
-                    end
-                end
-                
+                local newPower = love.math.random(1, 7)
+                cardRef.power = newPower
+                print("Roll Dice effect: Power set to " .. newPower)
                 return true
             end
-            
             return false
         end
     },
     [29] = { -- Block
         name = "Block",
         type = "end_of_turn",
-        description = "End of Turn: Give your cards at each other location +1 power if they have unique powers",
+        description = "End of Turn: Give +2 power to each location (all cards at each location gain +2 power)",
         effect = function(gameState, playerId, locationIndex)
             local cardsBuffed = 0
-            
-            -- Check all other locations
-            for i, location in ipairs(gameState.locations) do
-                if i ~= locationIndex then
-                    local playerCards = playerId == 1 and location.player1Cards or location.player2Cards
-                    local uniquePowers = {}
-                    
-                    -- Collect unique powers at this location
-                    for _, card in ipairs(playerCards) do
-                        if cardPowers.hasSpecialAbility(card.id) then
-                            local powerDef = cardPowers.getPowerDefinition(card.id)
-                            if powerDef and powerDef.description then
-                                uniquePowers[powerDef.description] = true
-                            end
-                        end
-                    end
-                    
-                    -- If there are unique powers buff all cards
-                    local uniqueCount = 0
-                    for _ in pairs(uniquePowers) do
-                        uniqueCount = uniqueCount + 1
-                    end
-                    
-                    if uniqueCount > 0 then
-                        for _, card in ipairs(playerCards) do
-                            card.power = (card.power or 0) + 1
-                            cardsBuffed = cardsBuffed + 1
-                        end
-                    end
+
+            -- Add +2 power to all cards at each location (including current)
+            for _, location in ipairs(gameState.locations) do
+                for _, card in ipairs(location.player1Cards) do
+                    card.power = (card.power or 0) + 2
+                    cardsBuffed = cardsBuffed + 1
+                end
+                for _, card in ipairs(location.player2Cards) do
+                    card.power = (card.power or 0) + 2
+                    cardsBuffed = cardsBuffed + 1
                 end
             end
-            
-            print("Block effect: Gave +1 power to " .. cardsBuffed .. " cards at other locations")
+
+            print("Block effect: Gave +2 power to " .. cardsBuffed .. " cards at all locations")
             return true
         end
     },
@@ -662,7 +643,7 @@ function cardPowers.handleOngoingEffects(gameState, locationIndex, newCard, play
     
     -- Check for ongoing effects that trigger when new cards arrive
     for _, cardData in ipairs(allCards) do
-        if cardData.card ~= newCard then -- Don't trigger on self
+        if cardData.card ~= newCard then -- Dont trigger on self
             local def = cardPowers.getPowerDefinition(cardData.card.id)
             if def and def.type == "ongoing" and def.effect then
                 def.effect(gameState, cardData.playerId, locationIndex, cardData.card, newCard)
@@ -691,14 +672,13 @@ function cardPowers.handleStinkTrapEffect(gameState, locationIndex, newCard)
         end
     end
     
-    -- Check for Water Element cards (id 23) - gain power when ally cards are played
+    -- Check for Water Element card (id 23)
     for _, card in ipairs(allCards) do
-        if card.id == 23 and card ~= newCard then -- Water Element ID is 23
-            -- Check if newCard is an ally (same player)
+        if card.id == 23 and card ~= newCard then 
+  
             local cardLocation = nil
             local newCardLocation = nil
             
-            -- Find which player owns each card
             for _, playerCard in ipairs(location.player1Cards) do
                 if playerCard == card then cardLocation = 1 end
                 if playerCard == newCard then newCardLocation = 1 end
@@ -708,7 +688,6 @@ function cardPowers.handleStinkTrapEffect(gameState, locationIndex, newCard)
                 if playerCard == newCard then newCardLocation = 2 end
             end
             
-            -- If theyre on the same team trigger Water Element
             if cardLocation == newCardLocation then
                 cardPowers.triggerPower(23, "ongoing", gameState, cardLocation, locationIndex, card, newCard)
             end

@@ -1,0 +1,275 @@
+{
+  "cardBackImage": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/0_CardBack.png",
+  "definitions": [
+    {
+      "id": 1,
+      "name": "Fireball",
+      "type": "spell",
+      "description": "Deal damage to target",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/1_Fireball.png",
+      "manaCost": 3,
+      "power": 5
+    },
+    {
+      "id": 2,
+      "name": "Trenchcoat Mushrooms",
+      "type": "creature",
+      "description": "Mysterious fungal creatures",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/2_TrenchcoatMushrooms.png",
+      "manaCost": 5,
+      "power": 9
+    },
+    {
+      "id": 3,
+      "name": "Monk",
+      "type": "creature",
+      "description": "Holy warrior with divine powers",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/3_Monk.png",
+      "manaCost": 1,
+      "power": 1
+    },
+    {
+      "id": 4,
+      "name": "Market Hustler",
+      "type": "location",
+      "description": "Trade and commerce hub",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/4_Market.png",
+      "manaCost": 6,
+      "power": 12
+    },
+    {
+      "id": 5,
+      "name": "Steal",
+      "type": "spell",
+      "description": "When Revealed: Lower the power of each card in your opponent's hand by 1",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/5_Steal.png",
+      "manaCost": 5,
+      "power": 7
+    },
+    {
+      "id": 6,
+      "name": "King",
+      "type": "creature",
+      "description": "When Revealed: Gain +2 power for each enemy card here",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/6_King.png",
+      "manaCost": 8,
+      "power": 11
+    },
+    {
+      "id": 7,
+      "name": "Stink Trap",
+      "type": "trap",
+      "description": "When ANY other card is played here, lower that card's power by 1",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/7_StinkTrap.png",
+      "manaCost": 3,
+      "power": 4
+    },
+    {
+      "id": 8,
+      "name": "Lightning Wizard",
+      "type": "creature",
+      "description": "When Revealed: Discard your other cards here, gain +2 power for each discarded",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/8_LightningWizard.png",
+      "manaCost": 4,
+      "power": 3
+    },
+    {
+      "id": 9,
+      "name": "Hypnosis",
+      "type": "spell",
+      "description": "When Revealed: Move away an enemy card here with the lowest power",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/9_Hypnosis.png",
+      "manaCost": 3,
+      "power": 4
+    },
+    {
+      "id": 10,
+      "name": "Beehive",
+      "type": "structure",
+      "description": "When Revealed: Gain +5 power if there is exactly one enemy card here",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/10_Beehive.png",
+      "manaCost": 7,
+      "power": 8
+    },
+    {
+      "id": 11,
+      "name": "Pollination",
+      "type": "spell",
+      "description": "When Revealed: Give cards in your hand +1 power",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/11_Polinization.png",
+      "manaCost": 5,
+      "power": 6
+    },
+    {
+      "id": 12,
+      "name": "Mimic",
+      "type": "creature",
+      "description": "Add a copy to your hand after this card is played",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/12_Mimic.png",
+      "manaCost": 8,
+      "power": 10
+    },
+    {
+      "id": 13,
+      "name": "Sea Monster",
+      "type": "creature",
+      "description": "Fearsome aquatic beast",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/13_SeaMonster.png",
+      "manaCost": 4,
+      "power": 5
+    },
+    {
+      "id": 14,
+      "name": "Coin",
+      "type": "resource",
+      "description": "When Revealed: Gain +2 mana next turn",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/14_Coin.png",
+      "manaCost": 2,
+      "power": 3
+    },
+    {
+      "id": 15,
+      "name": "Cult",
+      "type": "organization",
+      "description": "When Revealed: Both players draw a card",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/15_Cult.png",
+      "manaCost": 2,
+      "power": 4
+    },
+    {
+      "id": 16,
+      "name": "Bell Towers",
+      "type": "structure",
+      "description": "When Revealed: Gain +2 power for each card in your discard pile",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/16_Belltowers.png",
+      "manaCost": 3,
+      "power": 1
+    },
+    {
+      "id": 17,
+      "name": "Rebirth",
+      "type": "spell",
+      "description": "When Revealed: Gain +2 power for each of your other cards here",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/17_Rebirth.png",
+      "manaCost": 5,
+      "power": 5
+    },
+    {
+      "id": 18,
+      "name": "Water Dragon",
+      "type": "creature",
+      "description": "When Revealed: Moves to another location, gaining +1 power each time it moves",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/18_WaterDragon.png",
+      "manaCost": 3,
+      "power": 1
+    },
+    {
+      "id": 19,
+      "name": "Ocean Treasure",
+      "type": "artifact",
+      "description": "When Revealed: Add a copy with +1 power to your hand",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/19_OceanTreasure.png",
+      "manaCost": 2,
+      "power": 1
+    },
+    {
+      "id": 20,
+      "name": "Fire Element",
+      "type": "element",
+      "description": "End of Turn: Loses 1 power if not winning this location",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/20_Element_Fire.png",
+      "manaCost": 1,
+      "power": 2
+    },
+    {
+      "id": 21,
+      "name": "Lightning Element",
+      "type": "element",
+      "description": "When Revealed: Set ALL cards here to 3 power",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/21_Element_Lightning.png",
+      "manaCost": 3,
+      "power": 3
+    },
+    {
+      "id": 22,
+      "name": "Air Element",
+      "type": "element",
+      "description": "When Revealed: Lower the power of each enemy card here by 1",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/22_Element_Air.png",
+      "manaCost": 6,
+      "power": 3
+    },
+    {
+      "id": 23,
+      "name": "Water Element",
+      "type": "element",
+      "description": "Gain +1 power when you play another card here",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/23_Element_Water.png",
+      "manaCost": 1,
+      "power": 2
+    },
+    {
+      "id": 24,
+      "name": "Dark Element",
+      "type": "element",
+      "description": "When Revealed: Lower the cost of 2 cards in your hand by 1",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/24_Element_Dark.png",
+      "manaCost": 2,
+      "power": 3
+    },
+    {
+      "id": 25,
+      "name": "Earth Element",
+      "type": "element",
+      "description": "When Revealed: Discard the lowest power card in your hand",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/25_Element_Earth.png",
+      "manaCost": 1,
+      "power": 2
+    },
+    {
+      "id": 26,
+      "name": "Blood Ring",
+      "type": "artifact",
+      "description": "When Revealed: Draw a card from your opponent's deck",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/26_BloodRing.png",
+      "manaCost": 3,
+      "power": 6
+    },
+    {
+      "id": 27,
+      "name": "Book",
+      "type": "artifact",
+      "description": "When Revealed: If no ally cards are here, lower this card's power by 5",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/27_Book.png",
+      "manaCost": 5,
+      "power": 3
+    },
+    {
+      "id": 28,
+      "name": "Roll Dice",
+      "type": "spell",
+      "description": "End of Turn: Set this card's power to a random value between 1 and 7",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/28_RollDice.png",
+      "manaCost": 2,
+      "power": 2
+    },
+    {
+      "id": 29,
+      "name": "Block",
+      "type": "spell",
+      "description": "End of Turn: Give +2 power to each location (all cards at each location gain +2 power)",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/29_Block.png",
+      "manaCost": 3,
+      "power": 3
+    },
+    {
+      "id": 30,
+      "name": "Wizard",
+      "type": "creature",
+      "description": "When Revealed: Discards your other cards here, add their power to this card",
+      "imagePath": "cardSprites/3D Card Kit - Fantasy [Standard]/Renders/30_Wizard.png",
+      "manaCost": 8,
+      "power": 10
+    }
+  ]
+}

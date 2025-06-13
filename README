@@ -10,6 +10,37 @@
 --------------------------------------------------
 --------------------------------------------------
 
+--  Postmorterm Summary 
+--  Entire Postmortem - https://docs.google.com/document/d/1gd1rwNpYiL9edlyhVgzVKGbQxB2iFeNYb1jAz2IcO8E/edit?usp=sharing
+
+--  GFX List
+--  Card Art - https://quaternius.com
+--  SFX List 
+--  Main Menu Music - https://www.youtube.com/watch?v=CoWTz0jEfAI&ab_channel=SaudTahir
+--  In Game Music - https://www.youtube.com/watch?v=NyQCiqfkTA8&t=396s&ab_channel=Denz1000
+
+--  Game Inspiration 
+--  Marvel Snap - https://www.marvelsnap.com/
+--  Hearthstone - https://playhearthstone.com/en-us/
+--  Yu-Gi-Oh! - https://www.yugioh-card.com/en/
+
+--  Galadeer Card Power List 2.0 (new updated version)
+--  https://docs.google.com/spreadsheets/d/1scaitFTVB2B6blif8RNmEKvunDiqVHMlODt8tjlxr5g/edit?usp=sharing
+
+--  NEW (Final Project Aditions)
+
+--  Added main menu music
+--  Added Music to main game scene
+--  Added Screen shake animation depending on location win
+--  Added Title Screen
+--  Added Credits Scene
+--  Added 15 More Power Up Cards
+--  Converted cardData.lua to cardData.json
+--  Altered cardData.lua to read from cardData.json 
+--  Removed keybind controls and added Buttons onto the playing field
+--  Updated UI for better player experience
+--  expect possible hot fixes / improvments 
+
 --  README
 
 --  About 
@@ -19,25 +50,15 @@
 --  play cards by dragging them to the playing area
 --  cards can be played in any order
 --  cards vs cards in designated locations (3 Locations)
---  Start with 6 cards in hand
+--  Start with 3 cards in hand
 --  Gain 2 mana per turn capped at 10 mana
 --  Max hand size is 7 cards
 --  30 Playable cards in index
---  10 Power up cards
+--  25 Power up cards
 -- points are awarded depending on winning difference if in the same location
 --  First to 20 points wins
 --  Win, Lose, or Draw 
---  Changes will come for final project to improve game flow and landscape
 
---  NEW
-
---  Added start up music
---  Added Music to main game scene
---  Added Screen shake animation depending on location win
---  Added Title Screen
---  Added Credits Scene
---  Added More Power Up Cards
---  
 
 --  main.lua
 
@@ -50,7 +71,7 @@
 --  Calculates mana, and point allocation 
 --  drop zone areas for clear game flow
 --  3 different locations with 4 spots per location 
-
+--  new ui for better player experience
 
 
 --  grabber.lua 
@@ -86,19 +107,24 @@
 --  Stores all of the cards in cardData.lua 
 --  assigns the card powers to each card 
 --  according to my google sheet 
---  https://docs.google.com/spreadsheets/d/1v3JFHH-ZTxiU_4VAOMZdfLub_uIldZosR3hklX7IChc/edit?usp=sharing
+--  adjusted powers for 2.0
 
 
 
 --  cardData.lua
 
---  Stores all card data 
+--  reads data from cardDataInfo.json
 --  this means mana cost, card type, and card power
---  Sprite credits in cardSprites folder
+--  Sprite credits in cardSprites folder / above on this doc
 --  checks cards data 
+
+--  cardDataInfo.json
+
+--  readable file for game in order to easily add/remove cards
 
 
 --  AI Usage
 
 --  Helped debug syntax errors
 --  Helped correct missplacement of cards not being placed correctly 
+--  Helped debug card powers not working properly 

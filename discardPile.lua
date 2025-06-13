@@ -274,7 +274,7 @@ function discardPile.getUniqueCardsPlayed(playerNumber)
     return uniqueCards
 end
 
--- Shuffle discard pile back into deck (for future mechanics)
+-- Shuffle discard pile back into deck (for future mechanics) (rip never got to it but maybe ?)
 function discardPile.shuffleBackIntoDeck(playerNumber, deck)
     local pile = discardPile.getDiscardPile(playerNumber)
     local cardsShuffled = 0
